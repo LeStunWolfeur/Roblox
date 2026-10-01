@@ -1,5 +1,5 @@
 {
-  "name": "SkyRushObby",
+  "name": "StealACard",
   "tree": {
     "$className": "DataModel",
     "ReplicatedStorage": {
@@ -37,7 +37,7 @@
     },
     "Lighting": {
       "$properties": {
-        "ClockTime": 14.5,
+        "ClockTime": 14,
         "Brightness": 2.5,
         "GlobalShadows": true,
         "Technology": "Future"

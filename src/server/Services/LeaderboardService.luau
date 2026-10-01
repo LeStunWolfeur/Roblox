@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local DataService = require(script.Parent.DataService)
+local Format = require(ReplicatedStorage.Shared.Format)
 
 local LeaderboardService = {}
 
@@ -20,18 +21,9 @@ local function nameFor(userId: number): string
 	return names[userId]
 end
 
-local function shortNumber(n: number): string
-	if n >= 1e6 then
-		return ("%.1fM"):format(n / 1e6)
-	elseif n >= 1e4 then
-		return ("%.1fK"):format(n / 1e3)
-	end
-	return tostring(n)
-end
-
 local function buildBoardGui(board: BasePart, title: string)
 	local gui = Instance.new("SurfaceGui")
-	gui.Face = Enum.NormalId.Back
+	gui.Face = Enum.NormalId.Front
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 	gui.PixelsPerStud = 30
 	gui.LightInfluence = 0
@@ -95,46 +87,55 @@ local function refreshBoard(store: OrderedDataStore, rows, suffix: string)
 		if entry and entry.value > 0 then
 			local userId = tonumber(entry.key)
 			local name = userId and nameFor(userId) or "???"
-			rows[i].Text = ("  #%d  %s  ·  %s%s"):format(i, name, shortNumber(entry.value), suffix)
+			rows[i].Text = ("  #%d  %s  ·  %s%s"):format(i, name, Format.short(entry.value), suffix)
 		else
 			rows[i].Text = ("  #%d  ---"):format(i)
 		end
 	end
 end
 
-function LeaderboardService.Start(boards)
-	local okLevel, levelStore = pcall(DataStoreService.GetOrderedDataStore, DataStoreService, Config.StageBoardStore)
-	local okDonate, donateStore = pcall(DataStoreService.GetOrderedDataStore, DataStoreService, Config.DonationBoardStore)
-	if not okLevel or not okDonate then
+local function submitMax(store: OrderedDataStore, userId: number, value: number): boolean
+	return (pcall(function()
+		store:UpdateAsync(tostring(userId), function(old)
+			return math.max(tonumber(old) or 0, value)
+		end)
+	end))
+end
+
+-- getIncome(player) renvoie le revenu par seconde actuel du joueur
+function LeaderboardService.Start(boards, getIncome: (Player) -> number)
+	local okIncome, incomeStore = pcall(DataStoreService.GetOrderedDataStore, DataStoreService, Config.IncomeBoardStore)
+	local okSpeed, speedStore = pcall(DataStoreService.GetOrderedDataStore, DataStoreService, Config.SpeedBoardStore)
+	if not okIncome or not okSpeed then
 		warn("[Leaderboard] OrderedDataStore unavailable")
 		return
 	end
 
-	local levelRows = buildBoardGui(boards.TopLevels.part, boards.TopLevels.title)
-	local donateRows = buildBoardGui(boards.TopDonors.part, boards.TopDonors.title)
+	local incomeRows = buildBoardGui(boards.TopIncome.part, boards.TopIncome.title)
+	local speedRows = buildBoardGui(boards.TopSpeed.part, boards.TopSpeed.title)
 
-	local lastSent: { [number]: { level: number, donated: number } } = {}
+	-- on garde le meilleur score atteint (il baisse après un rebirth)
+	local best: { [number]: { income: number, speed: number } } = {}
 
 	task.spawn(function()
 		while true do
 			for _, player in Players:GetPlayers() do
 				local data = DataService.Get(player)
 				if data then
-					local prev = lastSent[player.UserId] or { level = -1, donated = -1 }
-					local levelScore = data.Level
-					if levelScore ~= prev.level then
-						pcall(levelStore.SetAsync, levelStore, tostring(player.UserId), levelScore)
-						prev.level = levelScore
+					local prev = best[player.UserId] or { income = 0, speed = 0 }
+					local income = math.floor(getIncome(player))
+					if income > prev.income and submitMax(incomeStore, player.UserId, income) then
+						prev.income = income
 					end
-					if data.Donated > 0 and data.Donated ~= prev.donated then
-						pcall(donateStore.SetAsync, donateStore, tostring(player.UserId), data.Donated)
-						prev.donated = data.Donated
+					local speed = math.floor(data.Speed)
+					if speed > prev.speed and submitMax(speedStore, player.UserId, speed) then
+						prev.speed = speed
 					end
-					lastSent[player.UserId] = prev
+					best[player.UserId] = prev
 				end
 			end
-			refreshBoard(levelStore, levelRows, " lvl")
-			refreshBoard(donateStore, donateRows, " R$")
+			refreshBoard(incomeStore, incomeRows, "/s")
+			refreshBoard(speedStore, speedRows, "")
 			task.wait(Config.LeaderboardRefresh)
 		end
 	end)

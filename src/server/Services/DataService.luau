@@ -23,20 +23,21 @@ local loadedSignal = Instance.new("BindableEvent")
 
 local function defaultData()
 	return {
-		Stage = 0, -- checkpoint actuel
-		BestStage = 0, -- plus loin atteint dans la run actuelle (sert aux récompenses)
-		Coins = 0,
-		XP = 0,
-		Level = 1,
+		Cash = Config.StartCash,
+		Speed = 0,
+		Treadmill = 1, -- meilleur tapis de course acheté
+		Raw = {}, -- cartes volées pas encore gradées : { Id, F }
+		Grading = {}, -- cartes au labo : { Id, F, Ends = os.time() de fin }
+		Cards = {}, -- cartes gradées exposées : { S = vitrine, Id, F, G }
+		Cases = Config.GalleryStartCases, -- vitrines débloquées
 		Rebirths = 0,
-		Wins = 0,
-		Donated = 0,
-		Trails = { "Cloud" },
-		EquippedTrail = "Cloud",
+		Index = {}, -- [idCarte] = true pour chaque carte déjà possédée
+		BestZone = 1,
+		TotalEarned = 0,
+		Steals = 0,
 		DailyStreak = 0,
 		LastDaily = 0,
 		Receipts = {},
-		WelcomeBadge = false,
 	}
 end
 
@@ -86,8 +87,7 @@ function DataService.Load(player: Player)
 		end
 	end
 
-	data.Stage = math.clamp(tonumber(data.Stage) or 0, 0, Config.TotalStages())
-	data.BestStage = math.clamp(tonumber(data.BestStage) or 0, data.Stage, Config.TotalStages())
+	data.Cash = tonumber(data.Cash) or Config.StartCash
 	profiles[player] = data
 	canSave[player] = ok
 	loadedSignal:Fire(player)

@@ -4,11 +4,15 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local NAMES = {
-	"State", -- serveur -> client : état complet du joueur
+	"State", -- serveur -> client : état du joueur (cash, cartes, rebirths...)
 	"Notify", -- serveur -> client : petit message (texte, type)
-	"Celebrate", -- serveur -> client : level up, fin, rebirth...
-	"StuckOffer", -- serveur -> client : propose le skip après plusieurs morts
-	"Action", -- client -> serveur : action demandée (skip, rebirth, acheter un trail...)
+	"Announce", -- serveur -> tous : grosse annonce (carte rare, event...)
+	"Reveal", -- serveur -> client : révélation d'une carte achetée (note, finition)
+	"StealAlert", -- serveur -> client : quelqu'un vole ta carte
+	"Knockback", -- serveur -> client : tu t'es pris une claque
+	"EventState", -- serveur -> tous : event en cours, saison, boost de chance
+	"Action", -- client -> serveur : actions de l'interface
+	"Admin", -- client -> serveur : commandes du panneau admin
 }
 
 local Remotes = {}

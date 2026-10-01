@@ -1,111 +1,146 @@
-# Sky Rush Obby
+# Steal a Card
 
-Obby Roblox complet, 60 stages répartis sur 6 mondes, avec progression (coins, niveaux, rebirths, trails, récompense quotidienne) et monétisation (Game Passes, skips, packs de coins, dons).
+Jeu Roblox du genre "Steal a" (dans la lignée de Steal an Egg), sur le thème des cartes à collectionner.
 
-Toute la map est générée par le code au lancement du serveur. Tu n'as rien à construire à la main dans Studio.
+Tu pars de ta galerie, tu remontes une longue rue droite pleine de boutiques de cartes, tu voles une carte sur un présentoir et tu cours jusqu'à la zone sûre avant que le gardien de la boutique ne t'attrape. Les cartes volées passent au labo de gradation, reçoivent une note de 1 à 10, puis vont dans ta galerie où elles rapportent du cash. Ce cash sert à acheter de meilleurs tapis de course, pour aller plus vite et viser des boutiques plus lointaines.
 
-## Ce qu'il y a dans le jeu
+Fichier prêt à ouvrir : `build/StealACard.rbxl`. Toute la map est générée par le code au lancement, rien à construire à la main.
 
-**Parcours**
-- 60 stages, 6 mondes de 10 (Meadow, Desert, Frost, Magma, Neon City, Void), chacun avec ses couleurs et son ambiance
-- 8 types d'obstacles qui se débloquent au fil du parcours : sauts, sol piégé, plateformes qui disparaissent, barres qui tournent, poutres en zigzag, trampolines, blocs qui balayent, tour à grimper
-- La difficulté monte stage après stage (plateformes plus petites, écarts plus grands, obstacles plus rapides). Tous les sauts restent faisables, je l'ai vérifié par simulation (écart max ~7 studs pour un saut d'environ 8,5)
-- Checkpoints sauvegardés, impossible de sauter un stage en trichant (on ne valide que le checkpoint suivant)
+## Pourquoi ce concept
 
-**Progression**
-- Coins et XP gagnés à chaque nouveau checkpoint, plus le stage est loin plus ça rapporte
-- Niveaux avec barre d'XP, affichés au-dessus de la tête et dans le chat
-- Rebirth une fois l'obby fini : retour au stage 0 avec +50% de coins et d'XP par rebirth, pour toujours
-- 8 trails achetables en coins, débloqués par niveau et par nombre de rebirths
-- Récompense quotidienne sur 7 jours avec série (la série repart à zéro après 48h sans réclamer)
-- Classements mondiaux dans le lobby : Top Levels et Top Donors
+- Le genre "Steal a" est ce qui marche le plus sur Roblox depuis 2025. Steal a Brainrot a battu le record de joueurs simultanés, et Steal an Egg (sorti le 25 juillet 2026) a atteint des milliards de visites en moins de deux mois.
+- Les jeux de collection de cartes sont en pleine montée en ce moment (Anime Card Collection, Youtuber Card Collection, et CookieRun Card Collection qui sort le 10 octobre 2026).
+- Je n'ai pas trouvé de jeu qui combine les deux. Attention, ça ne veut pas dire qu'il n'en existe aucun : je n'ai pas pu fouiller la recherche Roblox directement. Vérifie avant de publier en tapant "steal a card" dans Roblox.
+- La note de condition (de 1 à 10, comme une carte gradée) vient directement du vrai marché des cartes. C'est ce qui remplace l'éclosion des œufs de Steal an Egg, et c'est le moment "gacha" du jeu.
 
-**Monétisation**
-- 6 Game Passes : VIP, 2x Coins, Double Jump, Speed Boost, Low Gravity, Rainbow Trail
-- Developer Products : Skip Stage, Skip 5 Stages, 2 packs de coins, 3 dons
-- Proposition de skip automatique quand un joueur meurt 4 fois sur le même stage
-- Achats traités de façon sûre : un achat n'est validé auprès de Roblox qu'une fois livré et sauvegardé, donc personne ne perd ce qu'il a payé et personne ne le reçoit deux fois
+## Les lieux
 
-## Structure
+**Le hub (zone sûre)**
+- **Ta galerie** : 16 vitrines (6 au départ, les suivantes s'achètent). Les cartes exposées produisent du cash, à ramasser sur la dalle verte. Tu peux vendre une carte en maintenant E devant sa vitrine.
+- **Le Grading Lab** : les cartes volées y arrivent toutes seules. La gradation prend de 20 s (Common) à 25 min (Secret) et continue même quand tu es déconnecté. Une fois terminée, tu récupères la carte et sa note est révélée.
+- **La Training Track** : 8 tapis de course, du Basic au Singularity. Cours dessus pour gagner de la Speed. Chaque tapis se débloque avec du cash.
 
-```
-default.project.json        projet Rojo
-build/SkyRushObby.rbxl      le jeu prêt à ouvrir dans Studio
-src/shared/Config.luau      TOUS les réglages (IDs, prix en coins, récompenses, mondes)
-src/shared/Remotes.luau     communication serveur / client
-src/server/Main.server.luau démarrage
-src/server/World/           génération de la map (lobby, stages, checkpoints)
-src/server/Services/        sauvegarde, progression, achats, bonus, classements
-src/client/                 interface et gameplay côté joueur (double saut, trampolines, chat)
-```
+**La rue (10 boutiques en ligne droite)**
 
-## Publier le jeu, étape par étape
+| # | Boutique | Speed minimum | Gardien |
+|---|---|---|---|
+| 1 | Corner Shop | 0 | Grandpa Gus |
+| 2 | Comic Corner | 600 | Comic Kev |
+| 3 | Pixel Arcade | 6K | Arcade Ace |
+| 4 | Mall Kiosk | 50K | Mall Cop Mike |
+| 5 | Collector's Den | 400K | The Collector |
+| 6 | Auction House | 3M | The Auctioneer |
+| 7 | Bank Vault | 25M | Vault Guard |
+| 8 | Grand Museum | 200M | The Curator |
+| 9 | Sky Exchange | 1.6B | Sky Broker |
+| 10 | Cosmic Archive | 12B | The Archivist |
 
-### 1. Ouvrir le jeu
-Ouvre `build/SkyRushObby.rbxl` dans Roblox Studio (double clic ou File > Open).
+Chaque zone commence par un portail qui bloque ceux qui n'ont pas la Speed demandée. Chaque boutique a 6 présentoirs qui se remplissent tout seuls, avec des raretés de plus en plus hautes à mesure qu'on avance.
 
-Si tu veux modifier le code et voir les changements en direct, installe Rojo (plugin Studio + outil) puis lance `rojo serve` dans ce dossier. Sinon le .rbxl suffit.
+## Les règles du vol
 
-### 2. Publier une première fois
-File > Publish to Roblox. Donne un nom, une description, choisis le genre Obby.
+- Maintiens E sur une carte pour la prendre. Tu la portes au-dessus de ta tête et tu cours 15 % moins vite.
+- Le gardien te poursuit jusqu'au portail de sa zone. S'il t'attrape, tu es projeté et la carte tombe au sol pendant 25 s : n'importe quel joueur peut la ramasser.
+- Les autres joueurs peuvent te mettre une claque pour te faire lâcher la carte. Pas de claques dans la zone sûre.
+- Dès que tu rentres dans le hub, la carte part au labo.
 
-### 3. Activer la sauvegarde
-Home > Game Settings > Security > active **Enable Studio Access to API Services**. Sans ça, la sauvegarde ne marche pas pendant tes tests dans Studio (en jeu publié elle marche quand même).
+**Équilibrage, vérifié par simulation** : à la vitesse minimum d'une zone, le gardien t'attrape. Avec environ 2 fois la Speed demandée, tu ressors avec les cartes de devant. Il faut environ 6 fois pour celles du fond, près du gardien. C'est la même difficulté dans les 10 zones. Dans Steal an Egg aussi, la vitesse du portail permet seulement d'entrer, et il faut de la marge pour ressortir avec l'œuf.
 
-### 4. Créer les articles payants
-Sur create.roblox.com > Creations > ton jeu > Monetization :
-- **Passes** : crée les 6 passes (VIP, 2x Coins, Double Jump, Speed Boost, Low Gravity, Rainbow Trail), mets une image et un prix, et passe-les en vente
-- **Developer Products** : crée Skip Stage, Skip 5 Stages, 2 packs de coins (2 500 et 15 000), Donate 10, Donate 100, Donate 1000
+## Progression
 
-Copie chaque ID et colle-le dans `src/shared/Config.luau` à la place du `0` correspondant. Si tu passes par le .rbxl sans Rojo, le fichier est dans ReplicatedStorage > Shared > Config.
+- **48 cartes**, 7 raretés (Common à Secret).
+- **Finitions** tirées quand la carte apparaît : Holo x1.5, Gold x2.5, Rainbow x5, Dark Matter x10, et deux finitions de saison, Haunted et Frozen (x4).
+- **Note de condition** 1 à 10 tirée au labo : de x0.5 (Poor) à x2.5 (GEM MINT 10).
+- **Index** : chaque carte différente découverte donne +1 % de cash, pour toujours.
+- **Rebirth** : remet à zéro le cash, la Speed, les tapis et les cartes. En échange, tu gagnes pour toujours +50 % de cash, +25 % de Speed gagnée et un emplacement de gradation en plus.
+- **Récompense quotidienne** sur 7 jours, calculée en minutes de ton revenu.
+- **Events serveur** toutes les 8 à 12 minutes : Holo Storm, Golden Hour, Restock Rush, Lucky Moon, Sleepy Guards, plus Blood Moon pendant Halloween et Blizzard pendant l'hiver.
+- **Sets saisonniers datés** qui s'activent tout seuls : Spooky Set (1er octobre au 5 novembre, donc actif dès la sortie), Frost Set (10 décembre au 8 janvier), Bloom Set (printemps), Heatwave Set (été). Les cartes d'un set ne sortent que pendant sa fenêtre, après elles deviennent introuvables. L'ambiance lumineuse change aussi avec la saison.
+- Classements mondiaux dans le hub : Top Cash/s et Top Speed.
 
-Tant qu'un ID est à 0, l'article est simplement caché. Tu peux donc publier sans tout avoir.
+## Monétisation
 
-Prix que je te propose pour démarrer (c'est mon avis, pas une donnée officielle, à ajuster selon tes ventes) :
+**Game Passes** : VIP (x1.5 cash et tag), 2x Cash, 2x Training, 2x Grading, +2 Grading Slots, Auto Collect, Lucky Grader (meilleure note sur deux tirages).
 
-| Article | Prix suggéré |
+**Developer Products** : Speed Boost et Speed Mega Boost (10 min et 1 h de ton meilleur tapis), Grade All Now, Server Luck x2 pour tout le serveur pendant 15 min, Mystery Pack (Epic ou mieux), Cash Bag et Cash Vault.
+
+Tous les achats sont traités de façon sûre : un achat n'est validé auprès de Roblox qu'une fois livré et sauvegardé, et un même reçu n'est jamais livré deux fois (testé).
+
+Repère sur les prix : Steal an Egg vend son X2 Money 399 R$ et son X2 Growth 467 R$ (sources plus bas). Pour démarrer, je te conseille plutôt des prix un peu plus bas, le temps d'avoir des joueurs :
+
+| Article | Prix suggéré (mon avis) |
 |---|---|
-| VIP | 199 R$ |
-| 2x Coins | 149 R$ |
-| Double Jump | 99 R$ |
-| Speed Boost | 79 R$ |
-| Low Gravity | 79 R$ |
-| Rainbow Trail | 49 R$ |
-| Skip Stage | 15 R$ |
-| Skip 5 Stages | 59 R$ |
-| 2 500 coins | 49 R$ |
-| 15 000 coins | 199 R$ |
-| Dons | 10 / 100 / 1000 R$ |
+| VIP | 299 R$ |
+| 2x Cash | 349 R$ |
+| 2x Training | 249 R$ |
+| 2x Grading | 199 R$ |
+| +2 Grading Slots | 149 R$ |
+| Auto Collect | 99 R$ |
+| Lucky Grader | 199 R$ |
+| Speed Boost / Mega | 29 / 129 R$ |
+| Grade All Now | 49 R$ |
+| Server Luck x2 | 99 R$ |
+| Mystery Pack | 79 R$ |
+| Cash Bag / Vault | 29 / 129 R$ |
 
-Les prix des dons doivent correspondre au montant affiché, sinon le classement des dons sera faux (le jeu ajoute le montant écrit dans Config, pas le prix réel).
+## Panneau admin ("admin abuse")
 
-### 5. Badges (optionnel)
-Tu peux créer des badges (Welcome, fin du monde 1, fin de l'obby, premier rebirth, niveau 10) et mettre leurs IDs dans `Config.Badges`.
+Le créateur du jeu voit automatiquement un bouton ADMIN. Tu peux aussi ajouter d'autres UserIds dans `Config.Admins`. Le panneau permet de lancer n'importe quel event, d'activer Server Luck, de remplir tous les présentoirs, et de se donner du cash, de la Speed ou des cartes pour tester. Les "admin abuse" du samedi, c'est ce qui fait revenir les joueurs de Steal a Brainrot. Tu peux faire pareil avec ce panneau.
 
-### 6. Tester
-Lance Play dans Studio. Pour tester les passes sans les acheter, mets `Config.StudioGrantAllPasses = true` (ça ne marche que dans Studio, jamais en jeu publié). Remets-le à `false` avant de publier.
+## Publier, étape par étape
 
-### 7. Republier et ouvrir au public
-File > Publish to Roblox, puis sur create.roblox.com passe le jeu en Public. Remplis aussi le questionnaire de maturité et conformité dans les réglages du jeu, un jeu sans classification risque de ne pas être visible par tout le monde.
+1. Ouvre `build/StealACard.rbxl` dans Roblox Studio.
+2. **File > Publish to Roblox**, genre "Simulator" ou "Adventure".
+3. **Game Settings > Security** : active "Enable Studio Access to API Services" pour tester la sauvegarde dans Studio.
+4. Sur create.roblox.com > ton jeu > Monetization, crée les passes et les produits, puis colle leurs IDs dans `ReplicatedStorage > Shared > Config` (ou `src/shared/Config.luau` si tu utilises Rojo). Tant qu'un ID est à 0, l'article est simplement caché.
+5. Optionnel : crée les badges et mets leurs IDs dans `Config.Badges`.
+6. Teste avec Play. Pour essayer les passes sans les acheter, mets `Config.StudioGrantAllPasses = true`, et remets `false` avant de publier.
+7. Remplis le questionnaire de maturité et conformité, passe le jeu en Public, ajoute une icône et des miniatures (fais des captures de la rue la nuit pendant Halloween et d'une galerie remplie).
 
-### 8. Icône et miniatures
-Fais des captures dans Studio (le lobby avec le titre, un monde Neon City ou Void de nuit rend bien) et mets-les en icône et en thumbnails. C'est ce qui donne envie de cliquer, ne le néglige pas.
+## Ce qu'il faut faire en priorité pour que ça marche
 
-## Ce que tu dois savoir avant de compter sur l'argent
+- **Les illustrations des cartes.** Pour l'instant, chaque carte a un design généré (dégradé, motif et monogramme), propre mais sans personnage. Dans le genre, ce sont les personnages qui font partager le jeu (les brainrots, les œufs). Ajoute une image par carte dans `src/shared/Cards.luau` (champ `Image = "rbxassetid://..."`). Tu peux les dessiner, les commander, ou les générer toi-même. Respecte les règles Roblox, et n'utilise pas de personnages sous droits (Pokémon, etc.).
+- **Des sons** : vol, alerte du gardien, révélation de la note, collecte. Je n'en ai pas mis parce que je ne peux pas vérifier les IDs d'assets.
+- **La promo** : TikTok et Shorts de poursuites et de révélations "GEM MINT 10", pubs Roblox. Sans joueurs, il n'y a pas de revenus.
 
-- Le jeu est prêt techniquement, mais il ne fera pas de revenus tout seul. Sur Roblox, le plus dur c'est d'avoir des joueurs. Il y a énormément d'obbys, il faudra faire connaître le tien (TikTok / YouTube Shorts de passages difficiles, pubs Roblox, groupes)
-- Pour transformer tes Robux en vrai argent il y a le programme DevEx. D'après la doc officielle de Roblox, il faut au minimum 30 000 Robux gagnés, avoir 13 ans ou plus, un email vérifié et un formulaire fiscal (W-8 pour toi qui n'es pas aux États-Unis). Le taux standard est de 0,0038 $ par Robux, soit 114 $ pour 30 000. Vérifie la page officielle au moment de retirer, ces règles changent
-- Roblox prend une commission sur chaque vente de pass ou de produit, tu ne touches pas 100% du prix affiché
+## Ce qui a été testé, et ce qui ne l'a pas été
 
-## Modifier le jeu
+J'ai écrit une simulation du moteur Roblox (joueurs, temps, sauvegarde, achats) et j'ai fait tourner le vrai code du jeu dedans.
 
-Presque tout se règle dans `Config.luau` :
-- `StagesPerWorld` et `Worlds` pour la longueur et les thèmes
-- `CoinsForStage`, `XPForStage`, `XPToNext` pour l'équilibrage
-- `RebirthBonus` pour la puissance des rebirths
-- `Trails` pour ajouter des trails
-- `DailyRewards` pour la récompense quotidienne
+Ce qui a été vérifié :
+- Arrivée d'un joueur, vol, poursuite, évasion, livraison au labo, gradation, exposition, revenu et collecte.
+- Tapis de course, portails de vitesse, capture par un gardien, carte au sol ramassée par un autre joueur, claque.
+- Achats Robux (sans double livraison), vente, vitrines, rebirth, droits admin, sauvegarde puis reconnexion, et 5 minutes de jeu à 3 joueurs.
+- Côté interface : les 853 éléments créés, chaque bouton cliqué, chaque panneau ouvert, sans erreur.
 
-Les obstacles sont dans `src/server/World/StageTypes.luau`. Chaque type est une fonction, tu peux en ajouter un et le déclarer dans `StageTypes.Unlock`.
+Ce que je n'ai **pas** pu vérifier, parce que je n'ai pas accès à Roblox lui-même :
+- Le rendu visuel.
+- La physique réelle : les tapis de course qui ramènent en arrière, les projections.
+- Le ressenti en jeu.
 
-Après chaque modification, si tu travailles avec les fichiers, regénère le .rbxl avec `rojo build -o build/SkyRushObby.rbxl`.
+Fais une vraie session de test dans Studio (avec 2 joueurs via Test > Clients and Servers) avant de publier.
+
+## Structure du code
+
+```
+src/shared/Config.luau        réglages : zones, vitesse, prix, events, passes, produits
+src/shared/Cards.luau         les 48 cartes, raretés, finitions, notes, saisons
+src/shared/CardArt.luau       dessin des cartes (3D et interface)
+src/server/World/MapBuilder   génération de la map
+src/server/Services/          sauvegarde, zones et gardiens, labo, galerie, tapis, events, achats...
+src/client/                   interface et effets côté joueur
+```
+
+## Gagner de l'argent réel (DevEx)
+
+D'après la doc officielle de Roblox, il faut au minimum 30 000 Robux gagnés, avoir 13 ans ou plus, un email vérifié et un formulaire fiscal W-8 (tu n'es pas aux États-Unis). Le taux standard est de 0,0038 $ par Robux, soit 114 $ pour 30 000. Vérifie la page officielle au moment de retirer.
+
+## Sources
+
+- [Steal a Brainrot (Wikipedia)](https://en.wikipedia.org/wiki/Steal_a_Brainrot)
+- [Steal an Egg, zones, vitesses et gardiens (Eldorado)](https://www.eldorado.gg/blog/steal-an-egg/steal-an-egg-biomes-and-speed-requirements/)
+- [Steal an Egg, vitesse et tapis de course (stealaneggwiki.net)](https://stealaneggwiki.net/speed)
+- [Steal an Egg, gamepasses (bo3.gg)](https://bo3.gg/games/articles/steal-an-egg-gamepasses-guide)
+- [Meilleurs jeux Roblox de septembre 2026 (Sportskeeda)](https://www.sportskeeda.com/roblox-news/best-roblox-games-to-play-right-now)
+- [CookieRun Card Collection arrive sur Roblox (Pro Game Guides)](https://progameguides.com/roblox/cookierun-card-collection-brings-cookierun-tcg-to-roblox-this-october/)
+- [Roblox Developer Exchange](https://create.roblox.com/docs/production/monetization/developer-exchange)
