@@ -90,9 +90,17 @@ local function updateTreadmill(console: BasePart)
 	local prompt = treadmillPrompts[console]
 	local index = console:GetAttribute("TreadmillIndex")
 	local tier = Config.Treadmills[index]
-	if index == treadmillOwned + 1 then
+	if player:GetAttribute("Training") then
+		prompt.Enabled = false
+	elseif index <= treadmillOwned then
+		prompt.ActionText = "Train"
+		prompt.ObjectText = tier.Name .. " treadmill"
+		prompt.HoldDuration = 0
+		prompt.Enabled = true
+	elseif index == treadmillOwned + 1 then
 		prompt.ActionText = "Unlock " .. Format.cash(tier.Price)
 		prompt.ObjectText = tier.Name .. " treadmill"
+		prompt.HoldDuration = 0.4
 		prompt.Enabled = true
 	else
 		prompt.Enabled = false
@@ -107,7 +115,12 @@ local function hookTreadmill(console: Instance)
 	prompt.MaxActivationDistance = 12
 	treadmillPrompts[console] = prompt
 	prompt.Triggered:Connect(function()
-		Remotes.Action:FireServer("UnlockTreadmill", console:GetAttribute("TreadmillIndex"))
+		local index = console:GetAttribute("TreadmillIndex")
+		if index <= treadmillOwned then
+			Remotes.Action:FireServer("TrainStart", index)
+		else
+			Remotes.Action:FireServer("UnlockTreadmill", index)
+		end
 	end)
 	updateTreadmill(console)
 end
@@ -116,24 +129,22 @@ for _, c in CollectionService:GetTagged("Treadmill") do
 end
 CollectionService:GetInstanceAddedSignal("Treadmill"):Connect(hookTreadmill)
 
-Remotes.State.OnClientEvent:Connect(function(state)
-	treadmillOwned = state.Treadmill
+local function refreshTreadmills()
 	for console in treadmillPrompts do
 		updateTreadmill(console)
 	end
+end
+Remotes.State.OnClientEvent:Connect(function(state)
+	treadmillOwned = state.Treadmill
+	refreshTreadmills()
 end)
+player:GetAttributeChangedSignal("Training"):Connect(refreshTreadmills)
 
 --------------------------------------------------------------------
 -- Portails de vitesse : on se cogne dedans si on n'est pas assez rapide
 -- (changement local : la physique du personnage est calculée chez le joueur)
 --------------------------------------------------------------------
-local gates = {}
-local map = workspace:WaitForChild("Map")
-for _, d in map:GetDescendants() do
-	if d.Name == "SpeedGate" and d:IsA("BasePart") then
-		table.insert(gates, d)
-	end
-end
+local gates: { BasePart } = {}
 local function updateGates()
 	local speed = player:GetAttribute("Speed") or 0
 	for _, gate in gates do
@@ -145,8 +156,17 @@ local function updateGates()
 		end
 	end
 end
+local function hookGate(gate: Instance)
+	if gate:IsA("BasePart") then
+		table.insert(gates, gate)
+		updateGates()
+	end
+end
+for _, g in CollectionService:GetTagged("SpeedGate") do
+	hookGate(g)
+end
+CollectionService:GetInstanceAddedSignal("SpeedGate"):Connect(hookGate)
 player:GetAttributeChangedSignal("Speed"):Connect(updateGates)
-updateGates()
 
 --------------------------------------------------------------------
 -- Claque / gardien : projection

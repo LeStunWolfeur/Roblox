@@ -37,6 +37,7 @@ local function defaultData()
 		Steals = 0,
 		DailyStreak = 0,
 		LastDaily = 0,
+		Codes = {}, -- [CODE] = true pour chaque code utilisé
 		Receipts = {},
 	}
 end

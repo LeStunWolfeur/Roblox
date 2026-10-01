@@ -18,7 +18,7 @@ Fichier prêt à ouvrir : `build/StealACard.rbxl`. Toute la map est générée p
 **Le hub (zone sûre)**
 - **Ta galerie** : 16 vitrines (6 au départ, les suivantes s'achètent). Les cartes exposées produisent du cash, à ramasser sur la dalle verte. Tu peux vendre une carte en maintenant E devant sa vitrine.
 - **Le Grading Lab** : les cartes volées y arrivent toutes seules. La gradation prend de 20 s (Common) à 25 min (Secret) et continue même quand tu es déconnecté. Une fois terminée, tu récupères la carte et sa note est révélée.
-- **La Training Track** : 8 tapis de course, du Basic au Singularity. Cours dessus pour gagner de la Speed. Chaque tapis se débloque avec du cash.
+- **La Training Track** : 8 tapis de course, du Basic au Singularity. Appuie sur E devant un tapis pour monter dessus, puis **reste appuyé** sur Espace (ou W, clic, ou le bouton RUN sur mobile) pour courir et gagner de la Speed. X ou le bouton LEAVE pour descendre. Le pass Auto Train fait courir sans tenir la touche. Chaque tapis se débloque avec du cash.
 
 **La rue (10 boutiques en ligne droite)**
 
@@ -35,16 +35,16 @@ Fichier prêt à ouvrir : `build/StealACard.rbxl`. Toute la map est générée p
 | 9 | Sky Exchange | 1.6B | Sky Broker |
 | 10 | Cosmic Archive | 12B | The Archivist |
 
-Chaque zone commence par un portail qui bloque ceux qui n'ont pas la Speed demandée. Chaque boutique a 6 présentoirs qui se remplissent tout seuls, avec des raretés de plus en plus hautes à mesure qu'on avance.
+Avant chaque zone, un grand panneau indique la vitesse minimum, puis un portail bloque ceux qui ne l'ont pas. Chaque boutique a 6 présentoirs qui se remplissent tout seuls, avec des raretés de plus en plus hautes à mesure qu'on avance.
 
 ## Les règles du vol
 
 - Maintiens E sur une carte pour la prendre. Tu la portes au-dessus de ta tête et tu cours 15 % moins vite.
-- Le gardien te poursuit jusqu'au portail de sa zone. S'il t'attrape, tu es projeté et la carte tombe au sol pendant 25 s : n'importe quel joueur peut la ramasser.
+- Le gardien (un vendeur en uniforme, animé) te poursuit jusqu'au portail de sa zone, et il accélère pendant la poursuite (jusqu'à +25 %). S'il t'attrape, tu es projeté et la carte tombe au sol pendant 25 s : n'importe quel joueur peut la ramasser.
 - Les autres joueurs peuvent te mettre une claque pour te faire lâcher la carte. Pas de claques dans la zone sûre.
 - Dès que tu rentres dans le hub, la carte part au labo.
 
-**Équilibrage, vérifié par simulation** : à la vitesse minimum d'une zone, le gardien t'attrape. Avec environ 2 fois la Speed demandée, tu ressors avec les cartes de devant. Il faut environ 6 fois pour celles du fond, près du gardien. C'est la même difficulté dans les 10 zones. Dans Steal an Egg aussi, la vitesse du portail permet seulement d'entrer, et il faut de la marge pour ressortir avec l'œuf.
+**Équilibrage, vérifié par simulation** : à la vitesse minimum d'une zone, le gardien t'attrape. Avec environ 2 à 3 fois la Speed demandée, tu ressors avec les cartes de devant. Il faut environ 6 à 10 fois pour celles du fond, près du gardien. C'est la même difficulté dans les 10 zones. Dans Steal an Egg aussi, la vitesse du portail permet seulement d'entrer, et il faut de la marge pour ressortir avec l'œuf.
 
 ## Progression
 
@@ -57,12 +57,15 @@ Chaque zone commence par un portail qui bloque ceux qui n'ont pas la Speed deman
 - **Events serveur** toutes les 8 à 12 minutes : Holo Storm, Golden Hour, Restock Rush, Lucky Moon, Sleepy Guards, plus Blood Moon pendant Halloween et Blizzard pendant l'hiver.
 - **Sets saisonniers datés** qui s'activent tout seuls : Spooky Set (1er octobre au 5 novembre, donc actif dès la sortie), Frost Set (10 décembre au 8 janvier), Bloom Set (printemps), Heatwave Set (été). Les cartes d'un set ne sortent que pendant sa fenêtre, après elles deviennent introuvables. L'ambiance lumineuse change aussi avec la saison.
 - Classements mondiaux dans le hub : Top Cash/s et Top Speed.
+- **Friend Boost** : +10 % de cash par ami présent dans le serveur (max +50 %), affiché en bas à gauche avec un bouton pour inviter.
+- **Codes** : zone de saisie tout en bas du shop. Les codes se gèrent dans `Config.Codes` (cash, Speed ou carte, avec date d'expiration possible). Codes fournis : RELEASE, SPOOKY (jusqu'au 5 novembre), THANKYOU.
+- **Prévision** en bas à droite : le prochain event et dans combien de temps.
 
 ## Monétisation
 
-**Game Passes** : VIP (x1.5 cash et tag), 2x Cash, 2x Training, 2x Grading, +2 Grading Slots, Auto Collect, Lucky Grader (meilleure note sur deux tirages).
+**Game Passes** : VIP (x1.5 cash et tag), 2x Cash, 2x Training, Auto Train, 2x Grading, +2 Grading Slots, Auto Collect, Lucky Grader (meilleure note sur deux tirages).
 
-**Developer Products** : Speed Boost et Speed Mega Boost (10 min et 1 h de ton meilleur tapis), Grade All Now, Server Luck x2 pour tout le serveur pendant 15 min, Mystery Pack (Epic ou mieux), Cash Bag et Cash Vault.
+**Developer Products** : Freeze Guards (tous les gardiens gelés 30 s pour tout le serveur, mis en avant à droite de l'écran comme dans les jeux du genre), Speed Boost et Speed Mega Boost (10 min et 1 h de ton meilleur tapis), Grade All Now, Server Luck x2 pour tout le serveur pendant 15 min, Mystery Pack (Epic ou mieux), Cash Bag et Cash Vault.
 
 Tous les achats sont traités de façon sûre : un achat n'est validé auprès de Roblox qu'une fois livré et sauvegardé, et un même reçu n'est jamais livré deux fois (testé).
 
@@ -73,6 +76,8 @@ Repère sur les prix : Steal an Egg vend son X2 Money 399 R$ et son X2 Growth 46
 | VIP | 299 R$ |
 | 2x Cash | 349 R$ |
 | 2x Training | 249 R$ |
+| Auto Train | 199 R$ |
+| Freeze Guards | 79 R$ |
 | 2x Grading | 199 R$ |
 | +2 Grading Slots | 149 R$ |
 | Auto Collect | 99 R$ |
@@ -83,9 +88,24 @@ Repère sur les prix : Steal an Egg vend son X2 Money 399 R$ et son X2 Growth 46
 | Mystery Pack | 79 R$ |
 | Cash Bag / Vault | 29 / 129 R$ |
 
+## L'interface
+
+- À gauche, de gros boutons avec icônes : Shop, Index, Rebirth, Lab, Daily (et Admin pour toi).
+- En bas à gauche : ta Speed (avec ton multiplicateur), ton cash, ton revenu par seconde, la prochaine boutique à débloquer avec une barre de progression, et le Friend Boost.
+- À droite : Freeze Guards, et des téléporteurs Plot (ta galerie), Lab et Train. Impossible de se téléporter en portant une carte.
+- En haut : l'endroit où tu es (zone sûre, numéro de boutique, nom du gardien) et les events en cours.
+- En bas à droite : la prévision du prochain event.
+
+## Le style
+
+Tout est construit en briques à picots, comme dans tes captures de référence, avec une décoration propre à chaque endroit :
+- **Le hub :** pelouse, fontaine, arbres, bancs et lampadaires.
+- **Les galeries :** façon musée, avec tapis rouge, barrières dorées, appliques, tableaux et vitrines en verre.
+- **Les boutiques :** chacune a un décor à son thème, par exemple des bornes d'arcade, une fontaine de centre commercial, des bibliothèques, des colonnes de musée, une porte de coffre-fort, des nuages ou des planètes. Elles ont toutes une enseigne lumineuse, des vitrines, un auvent rayé, des plafonniers et un comptoir.
+
 ## Panneau admin ("admin abuse")
 
-Le créateur du jeu voit automatiquement un bouton ADMIN. Tu peux aussi ajouter d'autres UserIds dans `Config.Admins`. Le panneau permet de lancer n'importe quel event, d'activer Server Luck, de remplir tous les présentoirs, et de se donner du cash, de la Speed ou des cartes pour tester. Les "admin abuse" du samedi, c'est ce qui fait revenir les joueurs de Steal a Brainrot. Tu peux faire pareil avec ce panneau.
+Le créateur du jeu voit automatiquement un bouton ADMIN. Tu peux aussi ajouter d'autres UserIds dans `Config.Admins`. Le panneau permet de lancer n'importe quel event, de geler les gardiens, d'activer Server Luck, de remplir tous les présentoirs, et de se donner du cash, de la Speed ou des cartes pour tester. Les "admin abuse" du samedi, c'est ce qui fait revenir les joueurs de Steal a Brainrot. Tu peux faire pareil avec ce panneau.
 
 ## Publier, étape par étape
 
@@ -109,9 +129,10 @@ J'ai écrit une simulation du moteur Roblox (joueurs, temps, sauvegarde, achats)
 
 Ce qui a été vérifié :
 - Arrivée d'un joueur, vol, poursuite, évasion, livraison au labo, gradation, exposition, revenu et collecte.
-- Tapis de course, portails de vitesse, capture par un gardien, carte au sol ramassée par un autre joueur, claque.
+- Tapis de course (monter, courir en tenant Espace, s'arrêter en relâchant, descendre avec X), portails de vitesse, capture par un gardien, Freeze Guards, carte au sol ramassée par un autre joueur, claque, codes.
 - Achats Robux (sans double livraison), vente, vitrines, rebirth, droits admin, sauvegarde puis reconnexion, et 5 minutes de jeu à 3 joueurs.
-- Côté interface : les 853 éléments créés, chaque bouton cliqué, chaque panneau ouvert, sans erreur.
+- Côté interface : chaque bouton cliqué, chaque panneau ouvert, sans erreur.
+- La difficulté des gardiens a été mesurée sur les 10 zones et 3 présentoirs différents.
 
 Ce que je n'ai **pas** pu vérifier, parce que je n'ai pas accès à Roblox lui-même :
 - Le rendu visuel.

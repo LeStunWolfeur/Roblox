@@ -13,6 +13,7 @@ local CardArt = require(ReplicatedStorage.Shared.CardArt)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Kit = require(script.Parent.UI.Kit)
+local Icons = require(script.Parent.UI.Icons)
 
 local C = Kit.Colors
 local player = Players.LocalPlayer
@@ -64,73 +65,69 @@ local function serverNow(): number
 end
 
 --------------------------------------------------------------------
--- HUD : cash et vitesse (haut gauche)
+-- HUD : vitesse, cash, friend boost (bas gauche)
 --------------------------------------------------------------------
 local stats = Kit.new("Frame", {
 	Parent = gui,
 	BackgroundTransparency = 1,
-	Size = UDim2.fromOffset(260, 200),
-	Position = UDim2.fromOffset(14, 14),
+	Size = UDim2.fromOffset(360, 200),
+	Position = UDim2.new(0, 16, 1, -16),
+	AnchorPoint = Vector2.new(0, 1),
 })
-local _, cashFace = Kit.sticker({ Parent = stats, Size = UDim2.fromOffset(240, 64), Color = C.Green })
-local cashLabel = Kit.label({
-	Parent = cashFace,
-	Size = UDim2.new(1, -20, 0, 34),
-	Position = UDim2.fromOffset(12, 5),
-	TextXAlignment = Enum.TextXAlignment.Left,
-	TextColor3 = C.Ink,
-	Text = "$0",
-	ZIndex = 5,
-})
-local incomeLabel = Kit.label({
-	Parent = cashFace,
-	Size = UDim2.new(1, -20, 0, 18),
-	Position = UDim2.fromOffset(12, 40),
-	TextXAlignment = Enum.TextXAlignment.Left,
-	Font = Kit.Body,
-	TextColor3 = C.Ink,
-	Text = "+$0/s",
-	ZIndex = 5,
-})
-
-local _, speedFace = Kit.sticker({
-	Parent = stats,
-	Size = UDim2.fromOffset(240, 84),
-	Position = UDim2.fromOffset(0, 76),
-	Color = C.Paper,
-})
-local speedLabel = Kit.label({
-	Parent = speedFace,
-	Size = UDim2.new(1, -20, 0, 28),
-	Position = UDim2.fromOffset(12, 5),
-	TextXAlignment = Enum.TextXAlignment.Left,
-	TextColor3 = C.Ink,
-	Text = "SPEED 0",
-	ZIndex = 5,
-})
+local function iconBox(parent: Instance, kind: string, color: Color3, pos: UDim2, size: number)
+	local f = Kit.new("Frame", { Parent = parent, BackgroundTransparency = 1, Size = UDim2.fromOffset(size, size), Position = pos, ZIndex = 5 })
+	Icons.draw(kind, f, color, 5)
+	return f
+end
+local function bigText(parent: Instance, pos: UDim2, size: UDim2, color: Color3, text: string)
+	local l = Kit.label({ Parent = parent, Position = pos, Size = size, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = color, Text = text, ZIndex = 6 })
+	Kit.textStroke(3.5).Parent = l
+	return l
+end
+-- prochaine zone
 local nextZoneLabel = Kit.label({
-	Parent = speedFace,
-	Size = UDim2.new(1, -20, 0, 16),
-	Position = UDim2.fromOffset(12, 36),
+	Parent = stats,
+	Size = UDim2.fromOffset(300, 18),
+	Position = UDim2.fromOffset(4, 0),
 	TextXAlignment = Enum.TextXAlignment.Left,
 	Font = Kit.Body,
-	TextColor3 = C.Grey,
+	TextColor3 = C.White,
 	Text = "",
-	ZIndex = 5,
-})
-local zoneBarBack = Kit.new("Frame", {
-	Parent = speedFace,
-	BackgroundColor3 = C.Ink2,
-	Size = UDim2.new(1, -24, 0, 12),
-	Position = UDim2.fromOffset(12, 60),
-	ZIndex = 5,
-}, { Kit.corner(6) })
-local zoneBarFill = Kit.new("Frame", {
-	Parent = zoneBarBack,
-	BackgroundColor3 = C.Blue,
-	Size = UDim2.fromScale(0, 1),
 	ZIndex = 6,
-}, { Kit.corner(6) })
+})
+Kit.textStroke(2).Parent = nextZoneLabel
+local zoneBarBack = Kit.new("Frame", {
+	Parent = stats,
+	BackgroundColor3 = C.Ink2,
+	Size = UDim2.fromOffset(250, 10),
+	Position = UDim2.fromOffset(4, 22),
+	ZIndex = 5,
+}, { Kit.corner(5), Kit.stroke(2) })
+local zoneBarFill = Kit.new("Frame", { Parent = zoneBarBack, BackgroundColor3 = C.Blue, Size = UDim2.fromScale(0, 1), ZIndex = 6 }, { Kit.corner(5) })
+-- vitesse
+iconBox(stats, "shoe", C.Blue, UDim2.fromOffset(0, 40), 46)
+local speedLabel = bigText(stats, UDim2.fromOffset(54, 40), UDim2.fromOffset(170, 46), Color3.fromRGB(120, 170, 255), "0")
+local multLabel = bigText(stats, UDim2.fromOffset(226, 48), UDim2.fromOffset(110, 32), C.Green, "")
+-- cash
+iconBox(stats, "cash", C.Green, UDim2.fromOffset(0, 92), 46)
+local cashLabel = bigText(stats, UDim2.fromOffset(54, 90), UDim2.fromOffset(220, 52), C.Green, "$0")
+local incomeLabel = bigText(stats, UDim2.fromOffset(56, 140), UDim2.fromOffset(200, 20), C.White, "+$0/s")
+-- friend boost
+local friendLabel = bigText(stats, UDim2.fromOffset(4, 168), UDim2.fromOffset(220, 28), C.White, "Friend Boost: +0%")
+Kit.button({
+	Parent = stats,
+	Size = UDim2.fromOffset(34, 30),
+	Position = UDim2.fromOffset(232, 166),
+	Color = C.Green,
+	Text = "+",
+	TextColor = C.White,
+	TextStroke = true,
+	Shadow = 3,
+}, function()
+	pcall(function()
+		game:GetService("SocialService"):PromptGameInvite(player)
+	end)
+end)
 
 --------------------------------------------------------------------
 -- HUD : lieu actuel + event (haut centre)
@@ -468,7 +465,7 @@ end
 --------------------------------------------------------------------
 -- BOUTIQUE ROBUX
 --------------------------------------------------------------------
-local shopContent = makePanel("Shop", "SHOP", C.Pink, Vector2.new(700, 470))
+local shopContent = makePanel("Shop", "SHOP", C.Pink, Vector2.new(720, 520))
 local shopTabs = Kit.new("Frame", { Parent = shopContent, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 40), ZIndex = 23 })
 Kit.new("UIListLayout", {
 	Parent = shopTabs,
@@ -479,7 +476,7 @@ Kit.new("UIListLayout", {
 local shopPages = Kit.new("Frame", {
 	Parent = shopContent,
 	BackgroundTransparency = 1,
-	Size = UDim2.new(1, 0, 1, -52),
+	Size = UDim2.new(1, 0, 1, -120),
 	Position = UDim2.fromOffset(0, 52),
 	ZIndex = 23,
 })
@@ -523,8 +520,8 @@ local function shopCard(parent: Instance, order: number, title: string, desc: st
 	return holder, btn
 end
 
-for i, tab in { { "Passes", "PASSES", C.Yellow }, { "Boosts", "BOOSTS", C.Green } } do
-	local page = scrollGrid(shopPages, UDim2.fromOffset(300, 136), 2)
+for i, tab in { { "Passes", "PASSES", C.Yellow }, { "Boosts", "BOOSTS", C.Green }, { "Friends", "FRIENDS", C.Blue } } do
+	local page = scrollGrid(shopPages, UDim2.fromOffset(310, 136), 2)
 	page.Visible = i == 1
 	pages[tab[1]] = page
 	Kit.button({ Parent = shopTabs, Size = UDim2.fromOffset(120, 36), Color = tab[3], Text = tab[2], LayoutOrder = i, ZIndex = 24 }, function()
@@ -547,6 +544,82 @@ for i, key in Config.GamePassOrder do
 		end
 	end)
 end
+-- onglet Friends : Friend Boost + invitation
+local friendInfo = Kit.label({
+	Parent = pages.Friends,
+	Text = "",
+	Font = Kit.Body,
+	TextScaled = false,
+	TextSize = 18,
+	TextWrapped = true,
+	TextColor3 = C.Ink,
+	LayoutOrder = 1,
+	ZIndex = 25,
+})
+local _, inviteFace = Kit.sticker({ Parent = pages.Friends, Color = C.White, LayoutOrder = 2, ZIndex = 24 }, 4)
+local inviteTitle = Kit.label({ Parent = inviteFace, Size = UDim2.new(1, -20, 0, 30), Position = UDim2.fromOffset(10, 10), TextColor3 = C.Ink, Text = "INVITE FRIENDS", ZIndex = 26 })
+local _ = inviteTitle
+Kit.button({
+	Parent = inviteFace,
+	Size = UDim2.new(1, -36, 0, 44),
+	Position = UDim2.new(0, 18, 1, -56),
+	Color = C.Green,
+	Text = "INVITE",
+	ZIndex = 26,
+}, function()
+	pcall(function()
+		game:GetService("SocialService"):PromptGameInvite(player)
+	end)
+end)
+refreshers.Shop = function()
+	if not state then
+		return
+	end
+	friendInfo.Text = ("FRIEND BOOST\n+%d%% cash right now\n\n+%d%% for each friend in this server, up to +%d%%."):format(
+		math.floor(state.FriendBoost * 100 + 0.5),
+		math.floor(Config.FriendBoostPerFriend * 100),
+		math.floor(Config.FriendBoostMax * 100)
+	)
+end
+
+-- codes, tout en bas du shop
+local codeRow = Kit.new("Frame", {
+	Parent = shopContent,
+	BackgroundTransparency = 1,
+	Size = UDim2.new(1, 0, 0, 52),
+	Position = UDim2.new(0, 0, 1, -56),
+	ZIndex = 23,
+})
+local _, codeFace = Kit.sticker({ Parent = codeRow, Size = UDim2.new(1, -170, 1, 0), Color = C.White, ZIndex = 24 }, 4)
+local codeBox = Kit.new("TextBox", {
+	Parent = codeFace,
+	BackgroundTransparency = 1,
+	Size = UDim2.new(1, -24, 1, -10),
+	Position = UDim2.fromOffset(12, 5),
+	Font = Kit.Title,
+	TextScaled = true,
+	TextColor3 = C.Ink,
+	PlaceholderText = "Enter a code...",
+	PlaceholderColor3 = C.Grey,
+	Text = "",
+	ClearTextOnFocus = false,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	ZIndex = 26,
+})
+Kit.button({
+	Parent = codeRow,
+	Size = UDim2.fromOffset(150, 52),
+	Position = UDim2.new(1, -150, 0, 0),
+	Color = C.Yellow,
+	Text = "REDEEM",
+	ZIndex = 24,
+}, function()
+	if codeBox.Text ~= "" then
+		send("Redeem", codeBox.Text)
+		codeBox.Text = ""
+	end
+end)
+
 for i, key in Config.ProductOrder do
 	local product = Config.Products[key]
 	local holder, btn = shopCard(pages.Boosts, i, product.Name, product.Description, C.Green, function()
@@ -733,63 +806,132 @@ for i, rarity in Cards.RarityOrder do
 end
 
 --------------------------------------------------------------------
--- Boutons latéraux
+-- Gros boutons à gauche (avec icônes)
 --------------------------------------------------------------------
 local side = Kit.new("Frame", {
 	Parent = gui,
 	BackgroundTransparency = 1,
-	Size = UDim2.fromOffset(110, 400),
-	Position = UDim2.new(0, 14, 0.5, -110),
+	Size = UDim2.fromOffset(200, 360),
+	Position = UDim2.new(0, 16, 0.5, -215),
 })
-Kit.new("UIListLayout", { Parent = side, Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder })
+Kit.new("UIListLayout", { Parent = side, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder })
 local badges: { [string]: Frame } = {}
 local adminButtonHolder: Frame
+
+local function iconButton(parent: Instance, order: number, text: string, color: Color3, icon: string, size: Vector2, onClick: () -> ())
+	local holder, btn = Kit.button({
+		Parent = parent,
+		Size = UDim2.fromOffset(size.X, size.Y),
+		Color = color,
+		Text = "",
+		LayoutOrder = order,
+		Shadow = 4,
+	}, onClick)
+	local face = btn.Parent
+	local iconFrame = Kit.new("Frame", {
+		Parent = face,
+		BackgroundTransparency = 1,
+		Size = UDim2.fromOffset(size.Y - 16, size.Y - 16),
+		Position = UDim2.fromOffset(8, 8),
+		ZIndex = 4,
+	})
+	Icons.draw(icon, iconFrame, C.White, 4)
+	local label = Kit.label({
+		Parent = face,
+		Size = UDim2.new(1, -(size.Y + 4), 1, -14),
+		Position = UDim2.fromOffset(size.Y, 7),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Text = text,
+		ZIndex = 4,
+	})
+	Kit.textStroke(3).Parent = label
+	return holder, label
+end
+
 for i, info in {
-	{ "Shop", "SHOP", C.Pink },
-	{ "Lab", "LAB", C.Blue },
-	{ "Index", "INDEX", C.Purple },
-	{ "Rebirth", "REBIRTH", C.Yellow },
-	{ "Daily", "DAILY", C.Green },
-	{ "Admin", "ADMIN", C.Ink2 },
+	{ "Shop", "Shop", C.Pink, "cart" },
+	{ "Index", "Index", C.Blue, "book" },
+	{ "Rebirth", "Rebirth", C.Yellow, "star" },
+	{ "Lab", "Lab", Color3.fromRGB(0, 200, 210), "flask" },
+	{ "Daily", "Daily", C.Green, "gift" },
+	{ "Admin", "Admin", C.Ink2, "gear" },
 } do
-	local holder = Kit.button({
-		Parent = side,
-		Size = UDim2.fromOffset(104, 48),
-		Color = info[3],
-		Text = info[2],
-		TextColor = C.White,
-		TextStroke = true,
-		LayoutOrder = i,
-	}, function()
+	local holder = iconButton(side, i, info[2], info[3], info[4], Vector2.new(186, 54), function()
 		togglePanel(info[1])
 	end)
 	badges[info[1]] = Kit.new("Frame", {
 		Parent = holder,
 		BackgroundColor3 = C.Pink,
-		Size = UDim2.fromOffset(20, 20),
-		Position = UDim2.new(1, -10, 0, -8),
+		Size = UDim2.fromOffset(22, 22),
+		Position = UDim2.new(1, -12, 0, -8),
 		ZIndex = 10,
 		Visible = false,
-	}, { Kit.corner(10), Kit.stroke(3) })
+	}, { Kit.corner(11), Kit.stroke(3) })
 	if info[1] == "Admin" then
 		adminButtonHolder = holder
 		holder.Visible = false
 	end
 end
 
--- téléportation dans le hub (à droite)
-local travel = Kit.new("Frame", {
+--------------------------------------------------------------------
+-- Colonne de droite : Plot, Freeze Guards, Lab, Train
+--------------------------------------------------------------------
+local right = Kit.new("Frame", {
 	Parent = gui,
 	BackgroundTransparency = 1,
-	Size = UDim2.fromOffset(110, 200),
-	Position = UDim2.new(1, -124, 0.5, -90),
+	Size = UDim2.fromOffset(160, 340),
+	Position = UDim2.new(1, -176, 0.5, -215),
 })
-Kit.new("UIListLayout", { Parent = travel, Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder })
-for i, info in { { "Home", "GALLERY" }, { "GoLab", "LAB" }, { "GoTraining", "TRAIN" } } do
-	Kit.button({ Parent = travel, Size = UDim2.fromOffset(104, 42), Color = C.Paper, Text = info[2], LayoutOrder = i }, function()
-		send(info[1])
-	end)
-end
+Kit.new("UIListLayout", { Parent = right, Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Right })
+
+-- Freeze Guards : tuile mise en avant (produit Robux)
+local freezeHolder, freezeFace = Kit.sticker({
+	Parent = right,
+	Size = UDim2.fromOffset(160, 132),
+	Color = Color3.fromRGB(120, 200, 255),
+	LayoutOrder = 1,
+}, 5)
+freezeHolder.Visible = Config.Products.FreezeGuards.Id ~= 0
+local freezeIcon = Kit.new("Frame", { Parent = freezeFace, BackgroundTransparency = 1, Size = UDim2.fromOffset(56, 56), Position = UDim2.new(0.5, -28, 0, 30), ZIndex = 4 })
+Icons.draw("ice", freezeIcon, Color3.fromRGB(200, 240, 255), 4)
+local freezeTitle = Kit.label({ Parent = freezeFace, Size = UDim2.new(1, -12, 0, 26), Position = UDim2.fromOffset(6, 4), Text = "Freeze Guards", ZIndex = 5 })
+Kit.textStroke(3).Parent = freezeTitle
+local freezePrice = Kit.label({ Parent = freezeFace, Size = UDim2.new(1, -12, 0, 30), Position = UDim2.new(0, 6, 1, -36), Text = "...", ZIndex = 5 })
+Kit.textStroke(3).Parent = freezePrice
+local freezeHit = Kit.new("TextButton", { Parent = freezeFace, BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Text = "", ZIndex = 8 })
+freezeHit.Activated:Connect(function()
+	send("BuyProduct", "FreezeGuards")
+end)
+task.spawn(function()
+	freezePrice.Text = "ONLY " .. priceText(Config.Products.FreezeGuards.Id, Enum.InfoType.Product)
+end)
+
+iconButton(right, 2, "Plot", C.Paper, "house", Vector2.new(160, 58), function()
+	send("Home")
+end)
+iconButton(right, 3, "Lab", Color3.fromRGB(0, 200, 210), "flask", Vector2.new(160, 50), function()
+	send("GoLab")
+end)
+iconButton(right, 4, "Train", C.Blue, "shoe", Vector2.new(160, 50), function()
+	send("GoTraining")
+end)
+
+--------------------------------------------------------------------
+-- Prévision des events (bas droite)
+--------------------------------------------------------------------
+local forecastHolder, forecastFace = Kit.sticker({
+	Parent = gui,
+	Size = UDim2.fromOffset(250, 70),
+	Position = UDim2.new(1, -16, 1, -16),
+	AnchorPoint = Vector2.new(1, 1),
+	Color = C.Ink2,
+}, 4)
+local forecastIcon = Kit.new("Frame", { Parent = forecastFace, BackgroundTransparency = 1, Size = UDim2.fromOffset(44, 44), Position = UDim2.fromOffset(10, 13), ZIndex = 4 })
+Icons.draw("clock", forecastIcon, C.Yellow, 4)
+Kit.label({ Parent = forecastFace, Size = UDim2.new(1, -70, 0, 16), Position = UDim2.fromOffset(62, 8), Font = Kit.Body, TextColor3 = C.Grey, TextXAlignment = Enum.TextXAlignment.Left, Text = "FORECAST", ZIndex = 4 })
+local forecastLabel = Kit.label({ Parent = forecastFace, Size = UDim2.new(1, -70, 0, 34), Position = UDim2.fromOffset(62, 26), TextXAlignment = Enum.TextXAlignment.Left, Text = "", ZIndex = 4 })
+Kit.textStroke(2.5).Parent = forecastLabel
+local _ = forecastHolder
 
 --------------------------------------------------------------------
 -- Messages, annonces, révélation
@@ -919,7 +1061,7 @@ local function renderStats()
 	local speed = player:GetAttribute("Speed") or 0
 	cashLabel.Text = Format.cash(cash)
 	incomeLabel.Text = "+" .. Format.cash(income) .. "/s"
-	speedLabel.Text = "SPEED " .. Format.short(speed)
+	speedLabel.Text = Format.short(speed)
 	local i, zone = nextZone(speed)
 	if zone then
 		local prev = Config.Zones[i - 1] and Config.Zones[i - 1].Speed or 0
@@ -951,6 +1093,8 @@ local function render()
 	if not state then
 		return
 	end
+	multLabel.Text = state.SpeedMultiplier > 1 and ("(x%s)"):format(tostring(math.floor(state.SpeedMultiplier * 100 + 0.5) / 100)) or ""
+	friendLabel.Text = ("Friend Boost: +%d%%"):format(math.floor(state.FriendBoost * 100 + 0.5))
 	adminButtonHolder.Visible = state.IsAdmin
 	for key, btn in passButtons do
 		if state.Passes[key] then
@@ -1018,8 +1162,17 @@ task.spawn(function()
 		if eventState.Season then
 			table.insert(parts, Cards.Seasons[eventState.Season].Name:upper())
 		end
+		local frozen = eventState.FrozenUntil and eventState.FrozenUntil > now
+		if frozen then
+			table.insert(parts, 1, "GUARDS FROZEN " .. Format.time(eventState.FrozenUntil - now))
+		end
 		eventHolder.Visible = #parts > 0
 		eventLabel.Text = table.concat(parts, "   ·   ")
+		if eventState.NextEvent and eventState.NextAt and eventState.NextAt > now and eventState.NextAt - now < 86400 then
+			forecastLabel.Text = ("%s in %s"):format(Config.Events[eventState.NextEvent].Name, Format.time(eventState.NextAt - now))
+		else
+			forecastLabel.Text = "Calm skies"
+		end
 
 		if state then
 			local ready = 0

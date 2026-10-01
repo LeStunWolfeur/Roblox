@@ -106,9 +106,10 @@ Config.RestockTime = { 18, 32 } -- secondes avant qu'un présentoir vide se remp
 Config.StealHoldTime = 0.6
 
 -- Vitesse des gardiens. Réglée avec une simulation de poursuite :
--- à la vitesse minimum on se fait attraper, avec environ 2x la Speed demandée
--- on ressort avec les cartes de devant, environ 6x pour celles du fond.
-Config.GuardianSpeedFactor = 1.1
+-- à la vitesse minimum on se fait attraper, avec environ 2-3x la Speed demandée
+-- on ressort avec les cartes de devant, environ 6-10x pour celles du fond.
+-- (le gardien accélère aussi pendant la poursuite, voir GuardianRamp plus bas)
+Config.GuardianSpeedFactor = 0.95
 Config.GuardianReaction = 15 -- le gardien démarre après que le voleur a parcouru ~15 studs
 function Config.GuardianSpeedFor(zone): number
 	if zone.GuardianSpeed then
@@ -117,6 +118,10 @@ function Config.GuardianSpeedFor(zone): number
 	return Config.WalkSpeedFor(zone.Speed) * Config.GuardianSpeedFactor
 end
 Config.GuardianCatchRadius = 4.5
+-- les gardiens accélèrent pendant la poursuite : +1% tous les 4 studs parcourus, jusqu'à +25%
+Config.GuardianRampPerStud = 0.0025
+Config.GuardianRampMax = 0.25
+Config.FreezeDuration = 30
 Config.DropLifetime = 25 -- une carte tombée reste au sol tant de secondes
 
 --------------------------------------------------------------------
@@ -143,6 +148,20 @@ function Config.RebirthCost(rebirths: number): number
 end
 
 Config.IndexBonusPerCard = 0.01 -- +1% de cash par carte différente découverte
+
+-- Friend Boost : +10% de cash par ami présent dans le serveur (max +50%)
+Config.FriendBoostPerFriend = 0.1
+Config.FriendBoostMax = 0.5
+
+--------------------------------------------------------------------
+-- CODES (onglet Codes du shop). Ajoute les tiens ici.
+-- Reward : Cash, Speed ou Card (= rareté d'une carte brute envoyée au labo)
+--------------------------------------------------------------------
+Config.Codes = {
+	RELEASE = { Cash = 2500, Speed = 500 },
+	SPOOKY = { Card = "Rare", Expires = { 2026, 11, 5 } },
+	THANKYOU = { Cash = 10000 },
+}
 
 --------------------------------------------------------------------
 -- CLAQUE (pour faire lâcher une carte à un autre joueur)
@@ -185,9 +204,10 @@ Config.GamePasses = {
 	DoubleSpeed = { Id = 0, Name = "2x Training", Description = "Double Speed from every treadmill.", Color = Color3.fromRGB(255, 130, 60) },
 	AutoCollect = { Id = 0, Name = "Auto Collect", Description = "Gallery cash goes straight to your wallet.", Color = Color3.fromRGB(0, 220, 220) },
 	MoreGrading = { Id = 0, Name = "+2 Grading Slots", Description = "Grade two more cards at the same time.", Color = Color3.fromRGB(190, 120, 255) },
+	AutoTrain = { Id = 0, Name = "Auto Train", Description = "Train on treadmills without holding any key. AFK friendly.", Color = Color3.fromRGB(255, 70, 110) },
 	Lucky = { Id = 0, Name = "Lucky Grader", Description = "Better grades: best of two rolls.", Color = Color3.fromRGB(255, 90, 150) },
 }
-Config.GamePassOrder = { "VIP", "DoubleCash", "DoubleSpeed", "FastGrading", "MoreGrading", "AutoCollect", "Lucky" }
+Config.GamePassOrder = { "VIP", "DoubleCash", "DoubleSpeed", "AutoTrain", "FastGrading", "MoreGrading", "AutoCollect", "Lucky" }
 Config.VipCashMultiplier = 1.5
 
 --------------------------------------------------------------------
@@ -196,13 +216,14 @@ Config.VipCashMultiplier = 1.5
 Config.Products = {
 	SpeedSmall = { Id = 0, Kind = "Speed", Minutes = 10, Minimum = 1000, Name = "Speed Boost", Description = "10 minutes of training on your best treadmill." },
 	SpeedBig = { Id = 0, Kind = "Speed", Minutes = 60, Minimum = 8000, Name = "Speed Mega Boost", Description = "1 hour of training on your best treadmill." },
+	FreezeGuards = { Id = 0, Kind = "Freeze", Name = "Freeze Guards", Description = "Every guardian is frozen for 30 seconds. Go!" },
 	InstantGrade = { Id = 0, Kind = "InstantGrade", Name = "Grade All Now", Description = "Finish every card in the lab instantly." },
 	ServerLuck = { Id = 0, Kind = "ServerLuck", Name = "Server Luck x2", Description = "Rare cards x2 for EVERYONE in the server for 15 min." },
 	MysteryPack = { Id = 0, Kind = "Pack", Name = "Mystery Pack", Description = "A raw card sent to your lab. Epic or better." },
 	CashSmall = { Id = 0, Kind = "Cash", Minutes = 10, Minimum = 2000, Name = "Cash Bag", Description = "10 minutes of your income." },
 	CashBig = { Id = 0, Kind = "Cash", Minutes = 60, Minimum = 15000, Name = "Cash Vault", Description = "1 hour of your income." },
 }
-Config.ProductOrder = { "SpeedSmall", "SpeedBig", "InstantGrade", "ServerLuck", "MysteryPack", "CashSmall", "CashBig" }
+Config.ProductOrder = { "FreezeGuards", "SpeedSmall", "SpeedBig", "InstantGrade", "ServerLuck", "MysteryPack", "CashSmall", "CashBig" }
 Config.PackWeights = { Epic = 70, Legendary = 25, Mythic = 4.6, Secret = 0.4 }
 
 --------------------------------------------------------------------

@@ -276,12 +276,17 @@ function GalleryService.Start(built)
 	end
 
 	task.spawn(function()
+		local last = os.clock()
 		while true do
 			task.wait(1)
+			local now = os.clock()
+			local dt = math.min(now - last, 5)
+			last = now
 			for player, g in galleryOf do
 				local data = DataService.Get(player)
 				if data then
-					local income = GalleryService.Income(player)
+					local perSecond = GalleryService.Income(player)
+					local income = perSecond * dt
 					data.TotalEarned += income
 					local s = state[g]
 					if MonetizationService.Owns(player, "AutoCollect") then
@@ -293,7 +298,7 @@ function GalleryService.Start(built)
 						g.CollectLabel.Text = Format.cash(s.pending)
 					end
 					player:SetAttribute("Cash", data.Cash)
-					player:SetAttribute("Income", income)
+					player:SetAttribute("Income", perSecond)
 				end
 			end
 		end

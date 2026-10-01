@@ -19,6 +19,7 @@ local Format = require(ReplicatedStorage.Shared.Format)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local DataService = require(script.Parent.DataService)
 local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
+local GuardModel = require(script.Parent.Parent.World.GuardModel)
 local Hub = require(script.Parent.Parent.Hub)
 
 local ZoneService = {}
@@ -250,97 +251,41 @@ end
 --------------------------------------------------------------------
 -- Gardiens
 --------------------------------------------------------------------
-local function buildGuardianModel(zoneIndex: number, home: CFrame): Model
-	local zone = Config.Zones[zoneIndex]
-	local model = Instance.new("Model")
-	model.Name = zone.Guardian
+local frozenUntil = 0
 
-	local function p(name: string, size: Vector3, offset: CFrame, color: Color3, material: Enum.Material?)
-		local part = Instance.new("Part")
-		part.Name = name
-		part.Size = size
-		part.CFrame = home * offset
-		part.Color = color
-		part.Material = material or Enum.Material.SmoothPlastic
-		part.Anchored = true
-		part.CanCollide = false
-		part.CanQuery = false
-		part.TopSurface = Enum.SurfaceType.Smooth
-		part.BottomSurface = Enum.SurfaceType.Smooth
-		part.Parent = model
-		return part
-	end
-
-	local skin = Color3.fromRGB(255, 205, 160)
-	local root = p("Root", Vector3.new(4, 7, 2), CFrame.new(0, 3.5, 0), skin)
-	root.Transparency = 1
-	model.PrimaryPart = root
-	p("LegL", Vector3.new(1.5, 3, 1.5), CFrame.new(-0.9, 1.5, 0), INK)
-	p("LegR", Vector3.new(1.5, 3, 1.5), CFrame.new(0.9, 1.5, 0), INK)
-	p("Body", Vector3.new(4, 3.6, 2.2), CFrame.new(0, 4.8, 0), zone.Main)
-	-- tablier du vendeur
-	p("Apron", Vector3.new(3, 3, 0.2), CFrame.new(0, 4.4, -1.15), zone.Accent)
-	p("ArmL", Vector3.new(1.2, 3.4, 1.2), CFrame.new(-2.7, 4.8, 0), skin)
-	p("ArmR", Vector3.new(1.2, 3.4, 1.2), CFrame.new(2.7, 4.8, 0), skin)
-	local head = p("Head", Vector3.new(2.6, 2.6, 2.6), CFrame.new(0, 7.9, 0), skin)
-	p("Cap", Vector3.new(2.8, 0.8, 2.8), CFrame.new(0, 9.4, 0), zone.Accent)
-	p("Visor", Vector3.new(2.8, 0.25, 1.4), CFrame.new(0, 9.1, -1.8), zone.Accent)
-
-	-- visage (yeux + sourcils fâchés)
-	local face = Instance.new("SurfaceGui")
-	face.Face = Enum.NormalId.Front
-	face.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	face.PixelsPerStud = 40
-	face.Parent = head
-	for _, x in { 0.28, 0.72 } do
-		local eye = Instance.new("Frame")
-		eye.Size = UDim2.fromScale(0.16, 0.2)
-		eye.Position = UDim2.fromScale(x, 0.42)
-		eye.AnchorPoint = Vector2.new(0.5, 0.5)
-		eye.BackgroundColor3 = INK
-		eye.Parent = face
-		local brow = Instance.new("Frame")
-		brow.Size = UDim2.fromScale(0.26, 0.06)
-		brow.Position = UDim2.fromScale(x, 0.26)
-		brow.AnchorPoint = Vector2.new(0.5, 0.5)
-		brow.Rotation = x < 0.5 and 18 or -18
-		brow.BackgroundColor3 = INK
-		brow.Parent = face
-	end
-	local mouth = Instance.new("Frame")
-	mouth.Size = UDim2.fromScale(0.4, 0.07)
-	mouth.Position = UDim2.fromScale(0.5, 0.72)
-	mouth.AnchorPoint = Vector2.new(0.5, 0.5)
-	mouth.BackgroundColor3 = INK
-	mouth.Parent = face
-
-	local label, gui = MapBuilder.billboard(head, UDim2.fromOffset(220, 34), Vector3.new(0, 3, 0), zone.Guardian:upper(), zone.Accent, 120)
-	gui.Name = "NameTag"
-	label.Name = "Name"
-	model.Parent = zones[zoneIndex].Folder
-	return model
+function ZoneService.FreezeGuards(seconds: number)
+	frozenUntil = math.max(frozenUntil, os.clock()) + seconds
+	workspace:SetAttribute("GuardsFrozenUntil", workspace:GetServerTimeNow() + (frozenUntil - os.clock()))
 end
 
 local function makeGuardian(zoneIndex: number)
 	local z = zones[zoneIndex]
 	local zone = Config.Zones[zoneIndex]
 	local home = z.GuardianHome * CFrame.Angles(0, math.pi, 0) -- regarde vers l'entrée
-	local model = buildGuardianModel(zoneIndex, home)
-	local tag = (model:FindFirstChild("Head") :: BasePart):FindFirstChild("NameTag") :: BillboardGui
-	local nameLabel = tag:FindFirstChild("Name") :: TextLabel
+	local body = GuardModel.new(zone.Guardian, zone.Main:Lerp(Color3.fromRGB(40, 60, 120), 0.5), zone.Accent, z.Folder)
+	local nameLabel, tag = MapBuilder.billboard(body.Head, UDim2.fromOffset(240, 36), Vector3.new(0, 3.4, 0), zone.Guardian:upper(), zone.Accent, 120)
+	tag.Name = "NameTag"
 
 	local g = {
 		state = "idle",
 		target = nil :: Player?,
-		model = model,
 		position = home.Position,
 		alertAt = 0,
+		chased = 0, -- distance parcourue pendant la poursuite (le fait accélérer)
+		passedDoor = false,
+		phase = 0,
+		dirty = true,
 	}
-	-- porte de la boutique (côté route) : le gardien passe par là pour sortir
+	-- porte de la boutique (côté route) : le gardien passe par là pour sortir et rentrer
 	local door = z.ShopAt(0, 0, -6).Position
 
-	local function speed(): number
+	local function baseSpeed(): number
 		return Config.GuardianSpeedFor(zone) * Hub.Events.GuardianSpeedFactor()
+	end
+
+	local function chaseSpeed(): number
+		local ramp = math.min(g.chased * Config.GuardianRampPerStud, Config.GuardianRampMax)
+		return baseSpeed() * (1 + ramp)
 	end
 
 	local function insideShop(pos: Vector3): boolean
@@ -348,24 +293,28 @@ local function makeGuardian(zoneIndex: number)
 		return p.Z < 0 and p.Z > -56 and math.abs(p.X) < 35
 	end
 
+	local function setTag(text: string, color: Color3)
+		nameLabel.Text = text
+		nameLabel.TextColor3 = color
+	end
+
 	function g.alert(player: Player)
 		g.state = "alert"
 		g.target = player
+		g.chased = 0
 		-- temps de réaction exprimé en distance : même difficulté dans toutes les zones
-		g.alertAt = os.clock() + Config.GuardianReaction / speed()
-		nameLabel.Text = "!!!"
-		nameLabel.TextColor3 = Color3.fromRGB(255, 60, 90)
+		g.alertAt = os.clock() + Config.GuardianReaction / baseSpeed()
+		setTag("!!!", Color3.fromRGB(255, 60, 90))
 	end
 
 	local function giveUp()
 		g.state = "return"
-		g.passedDoor = false
 		g.target = nil
-		nameLabel.Text = zone.Guardian:upper()
-		nameLabel.TextColor3 = zone.Accent
+		g.passedDoor = false
+		setTag(zone.Guardian:upper(), zone.Accent)
 	end
 
-	local function moveToward(goal: Vector3, step: number)
+	local function moveToward(goal: Vector3, step: number): number
 		local flat = Vector3.new(goal.X, g.position.Y, goal.Z)
 		local offset = flat - g.position
 		local dist = offset.Magnitude
@@ -377,13 +326,26 @@ local function makeGuardian(zoneIndex: number)
 		return dist - move
 	end
 
-	local bob = 0
+	local wasFrozen = false
 	function g.update(dt: number)
-		local t = os.clock()
+		local frozen = os.clock() < frozenUntil
+		if frozen ~= wasFrozen then
+			wasFrozen = frozen
+			g.dirty = true
+			if frozen then
+				setTag("FROZEN", Color3.fromRGB(150, 220, 255))
+			elseif g.state == "chase" then
+				setTag(zone.Guardian:upper() .. "!", Color3.fromRGB(255, 60, 90))
+			else
+				setTag(zone.Guardian:upper(), zone.Accent)
+			end
+		end
+
+		local moving = false
 		if g.state == "alert" then
-			if t >= g.alertAt then
+			if os.clock() >= g.alertAt and not frozen then
 				g.state = "chase"
-				nameLabel.Text = zone.Guardian:upper() .. "!"
+				setTag(zone.Guardian:upper() .. "!", Color3.fromRGB(255, 60, 90))
 			end
 		elseif g.state == "chase" then
 			local target = g.target
@@ -393,12 +355,15 @@ local function makeGuardian(zoneIndex: number)
 			local lost = not target or not target.Parent or not c or c.Zone ~= zoneIndex or not root
 			if lost or root.Position.Z < z.GateZ - 8 or MapBuilder.InHub(root.Position) then
 				giveUp()
-			else
+			elseif not frozen then
 				local goal = root.Position
 				if insideShop(g.position) and not insideShop(goal) then
 					goal = door
 				end
-				moveToward(goal, speed() * dt)
+				local step = chaseSpeed() * dt
+				moveToward(goal, step)
+				g.chased += step
+				moving = true
 				local flatDist = (Vector3.new(root.Position.X, 0, root.Position.Z) - Vector3.new(g.position.X, 0, g.position.Z)).Magnitude
 				if flatDist < Config.GuardianCatchRadius then
 					local away = (root.Position - g.position) * Vector3.new(1, 0, 1)
@@ -408,39 +373,46 @@ local function makeGuardian(zoneIndex: number)
 					giveUp()
 				end
 			end
-		elseif g.state == "return" then
+		elseif g.state == "return" and not frozen then
 			-- d'abord la porte de la boutique, ensuite sa place
 			if not g.passedDoor and insideShop(g.position) then
 				g.passedDoor = true
 			end
 			local goal = g.passedDoor and home.Position or door
-			local left = moveToward(goal, speed() * 1.5 * dt)
+			local left = moveToward(goal, baseSpeed() * 1.2 * dt)
+			moving = true
 			if left <= 0.1 then
 				if g.passedDoor then
 					g.state = "idle"
 					g.position = home.Position
+					g.dirty = true
 				else
 					g.passedDoor = true
 				end
 			end
 		end
 
-		-- orientation et petit rebond pendant la course
+		-- on ne redessine que si le gardien bouge (économise le réseau)
+		if not moving and not g.dirty then
+			return
+		end
+		g.dirty = false
 		local facing
-		if g.state == "idle" or g.state == "alert" then
-			facing = home.LookVector
-			bob = 0
-		else
+		if moving then
 			local goalPos = g.target and g.target.Character and g.target.Character:FindFirstChild("HumanoidRootPart")
 			local dir = goalPos and ((goalPos :: BasePart).Position - g.position) or (home.Position - g.position)
+			if g.state == "return" and not g.passedDoor then
+				dir = door - g.position
+			end
 			dir = Vector3.new(dir.X, 0, dir.Z)
 			facing = dir.Magnitude > 0.1 and dir.Unit or home.LookVector
-			bob += dt * 14
+			g.phase += dt * (8 + chaseSpeed() * 0.12)
+		else
+			facing = home.LookVector
 		end
-		-- le sol de la boutique est à 1 stud, la route à 0,2
 		local floor = insideShop(g.position) and 1 or 0.2
-		local lift = Vector3.new(0, floor + 3.5 + math.abs(math.sin(bob)) * 0.6, 0)
-		model:PivotTo(CFrame.lookAt(g.position + lift, g.position + lift + facing))
+		local at = g.position + Vector3.new(0, floor, 0)
+		body:Place(CFrame.lookAt(at, at + facing), g.phase, moving, frozen)
 	end
 
 	guardians[zoneIndex] = g

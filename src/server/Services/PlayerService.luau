@@ -16,6 +16,8 @@ local Hub = require(script.Parent.Parent.Hub)
 local PlayerService = {}
 
 local lastAction: { [Player]: number } = {}
+local friends: { [Player]: { [Player]: boolean } } = {}
+local CodeService = require(script.Parent.CodeService)
 
 --------------------------------------------------------------------
 -- Utilitaires
@@ -52,6 +54,16 @@ local function indexCount(data): number
 	return n
 end
 
+function PlayerService.FriendBoost(player: Player): number
+	local n = 0
+	for other in friends[player] or {} do
+		if other.Parent then
+			n += 1
+		end
+	end
+	return math.min(n * Config.FriendBoostPerFriend, Config.FriendBoostMax)
+end
+
 function PlayerService.CashMultiplier(player: Player): number
 	local data = DataService.Get(player)
 	if not data then
@@ -65,6 +77,7 @@ function PlayerService.CashMultiplier(player: Player): number
 		m *= 2
 	end
 	m *= 1 + indexCount(data) * Config.IndexBonusPerCard
+	m *= 1 + PlayerService.FriendBoost(player)
 	return m
 end
 
@@ -124,6 +137,9 @@ function PlayerService.SendState(player: Player)
 		DailyDay = day,
 		DailyReward = dailyReward(player, day),
 		IsAdmin = isAdmin(player),
+		FriendBoost = PlayerService.FriendBoost(player),
+		IndexBonus = indexCount(data) * Config.IndexBonusPerCard,
+		Codes = data.Codes,
 	})
 end
 
@@ -213,6 +229,22 @@ function actions.UnlockTreadmill(player: Player, index: any)
 	end
 end
 
+function actions.TrainStart(player: Player, index: any)
+	Hub.Training.StartOn(player, index)
+end
+
+function actions.TrainStop(player: Player)
+	Hub.Training.Stop(player)
+end
+
+function actions.TrainHold(player: Player, value: any)
+	Hub.Training.SetHolding(player, value)
+end
+
+function actions.Redeem(player: Player, code: any)
+	CodeService.Redeem(player, code)
+end
+
 function actions.Rebirth(player: Player)
 	local data = DataService.Get(player)
 	if not data then
@@ -226,6 +258,7 @@ function actions.Rebirth(player: Player)
 	if Hub.Zones.IsCarrying(player) then
 		return
 	end
+	Hub.Training.Stop(player)
 	data.Rebirths += 1
 	data.Cash = 0
 	data.Speed = 0
@@ -312,31 +345,6 @@ local function onAction(player: Player, action: any, a: any, b: any)
 end
 
 --------------------------------------------------------------------
--- Panneau admin
---------------------------------------------------------------------
-local function onAdmin(player: Player, command: any, a: any)
-	if not isAdmin(player) or type(command) ~= "string" then
-		return
-	end
-	local data = DataService.Get(player)
-	if command == "Event" and type(a) == "string" then
-		Hub.Events.StartEvent(a)
-	elseif command == "Luck" then
-		Hub.Events.AddServerLuck(Config.ServerLuckDuration, player.DisplayName)
-	elseif command == "Restock" then
-		Hub.Zones.RestockAll()
-	elseif command == "Cash" and type(a) == "number" and data then
-		data.Cash += math.clamp(a, 0, 1e15)
-		player:SetAttribute("Cash", data.Cash)
-	elseif command == "Speed" and type(a) == "number" and data then
-		Hub.Training.AddSpeed(player, math.clamp(a, 0, 1e15))
-	elseif command == "Card" and type(a) == "string" and Cards.Rarities[a] then
-		Hub.Grading.Deliver(player, Hub.Loot.RollCard(a), Hub.Loot.RollFinish())
-	end
-	PlayerService.SendState(player)
-end
-
---------------------------------------------------------------------
 -- Achats Robux
 --------------------------------------------------------------------
 local function handleSpeed(player: Player, product): boolean
@@ -349,6 +357,13 @@ end
 
 local function handleInstantGrade(player: Player): boolean
 	return Hub.Grading.FinishAll(player)
+end
+
+local function handleFreeze(player: Player): boolean
+	Hub.Zones.FreezeGuards(Config.FreezeDuration)
+	Hub.Events.Broadcast()
+	Remotes.Announce:FireAllClients("GUARDS FROZEN!", player.DisplayName .. " froze every guardian for " .. Config.FreezeDuration .. "s", "luck")
+	return true
 end
 
 local function handleServerLuck(player: Player): boolean
@@ -372,6 +387,33 @@ local function handleCash(player: Player, product): boolean
 	player:SetAttribute("Cash", data.Cash)
 	notify(player, "+" .. Format.cash(amount) .. ". Thanks for the support!", "cash")
 	return true
+end
+
+--------------------------------------------------------------------
+-- Panneau admin
+--------------------------------------------------------------------
+local function onAdmin(player: Player, command: any, a: any)
+	if not isAdmin(player) or type(command) ~= "string" then
+		return
+	end
+	local data = DataService.Get(player)
+	if command == "Event" and type(a) == "string" then
+		Hub.Events.StartEvent(a)
+	elseif command == "Luck" then
+		Hub.Events.AddServerLuck(Config.ServerLuckDuration, player.DisplayName)
+	elseif command == "Freeze" then
+		handleFreeze(player)
+	elseif command == "Restock" then
+		Hub.Zones.RestockAll()
+	elseif command == "Cash" and type(a) == "number" and data then
+		data.Cash += math.clamp(a, 0, 1e15)
+		player:SetAttribute("Cash", data.Cash)
+	elseif command == "Speed" and type(a) == "number" and data then
+		Hub.Training.AddSpeed(player, math.clamp(a, 0, 1e15))
+	elseif command == "Card" and type(a) == "string" and Cards.Rarities[a] then
+		Hub.Grading.Deliver(player, Hub.Loot.RollCard(a), Hub.Loot.RollFinish())
+	end
+	PlayerService.SendState(player)
 end
 
 --------------------------------------------------------------------
@@ -425,6 +467,20 @@ local function onPlayerAdded(player: Player)
 		return
 	end
 
+	-- amis présents dans le serveur (Friend Boost)
+	friends[player] = friends[player] or {}
+	for _, other in Players:GetPlayers() do
+		if other ~= player then
+			local ok, isFriend = pcall(player.IsFriendsWith, player, other.UserId)
+			if ok and isFriend then
+				friends[player][other] = true
+				friends[other] = friends[other] or {}
+				friends[other][player] = true
+				PlayerService.SendState(other)
+			end
+		end
+	end
+
 	awardBadge(player, "Welcome")
 	PlayerService.SendState(player)
 	Hub.Events.Broadcast(player)
@@ -435,6 +491,14 @@ end
 
 local function onPlayerRemoving(player: Player)
 	Hub.Gallery.Release(player)
+	Hub.Training.Stop(player)
+	friends[player] = nil
+	for other, set in friends do
+		if set[player] then
+			set[player] = nil
+			task.defer(PlayerService.SendState, other)
+		end
+	end
 	lastAction[player] = nil
 end
 
@@ -442,6 +506,7 @@ function PlayerService.Start()
 	MonetizationService.RegisterHandler("Speed", handleSpeed)
 	MonetizationService.RegisterHandler("InstantGrade", handleInstantGrade)
 	MonetizationService.RegisterHandler("ServerLuck", handleServerLuck)
+	MonetizationService.RegisterHandler("Freeze", handleFreeze)
 	MonetizationService.RegisterHandler("Pack", handlePack)
 	MonetizationService.RegisterHandler("Cash", handleCash)
 

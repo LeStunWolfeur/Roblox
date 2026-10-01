@@ -13,6 +13,8 @@ local current: string? = nil
 local endsAt = 0
 local luckUntil = 0
 local season: string? = nil
+local nextId: string? = nil
+local nextAt = 0
 local rng = Random.new()
 
 local function now(): number
@@ -63,6 +65,9 @@ function EventService.Broadcast(player: Player?)
 		EndsAt = endsAt,
 		Season = season,
 		LuckUntil = luckUntil,
+		NextEvent = nextId,
+		NextAt = nextAt,
+		FrozenUntil = workspace:GetAttribute("GuardsFrozenUntil") or 0,
 	}
 	if player then
 		Remotes.EventState:FireClient(player, payload)
@@ -129,15 +134,22 @@ function EventService.Start()
 
 	task.spawn(function()
 		while true do
-			task.wait(rng:NextInteger(Config.EventEvery[1], Config.EventEvery[2]))
+			-- on choisit le prochain event à l'avance pour l'afficher dans la prévision
 			local pool = {}
 			for id, event in Config.Events do
 				if not event.Season or event.Season == season then
 					table.insert(pool, id)
 				end
 			end
-			if #pool > 0 and not EventService.Current() then
-				EventService.StartEvent(pool[rng:NextInteger(1, #pool)])
+			table.sort(pool)
+			nextId = pool[rng:NextInteger(1, #pool)]
+			nextAt = now() + rng:NextInteger(Config.EventEvery[1], Config.EventEvery[2])
+			EventService.Broadcast()
+			while now() < nextAt do
+				task.wait(1)
+			end
+			if not EventService.Current() then
+				EventService.StartEvent(nextId)
 			end
 		end
 	end)
