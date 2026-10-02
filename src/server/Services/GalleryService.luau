@@ -113,11 +113,7 @@ local function setVisible(folder: Instance, visible: boolean)
 			end
 			d.Transparency = visible and d:GetAttribute("T0") or 1
 			d.CanCollide = visible and d:GetAttribute("C0") or false
-		elseif d:IsA("SurfaceGui") or d:IsA("BillboardGui") then
-			d.Enabled = visible
-		elseif d:IsA("PointLight") or d:IsA("SpotLight") then
-			d.Enabled = visible
-		elseif d:IsA("ProximityPrompt") then
+		elseif d:IsA("SurfaceGui") or d:IsA("BillboardGui") or d:IsA("PointLight") or d:IsA("SpotLight") or d:IsA("ProximityPrompt") then
 			d.Enabled = visible
 		end
 	end

@@ -17,6 +17,8 @@ local CollectionService = game:GetService("CollectionService")
 local Cards = require(script.Parent.Cards)
 local Entity = require(script.Parent.Entity)
 local Format = require(script.Parent.Format)
+local Config = require(script.Parent.Config)
+local ImageAtlas = require(script.Parent.ImageAtlas)
 
 local CardArt = {}
 
@@ -25,6 +27,14 @@ local WHITE = Color3.new(1, 1, 1)
 local function rgb(r, g, b)
 	return Color3.fromRGB(r, g, b)
 end
+
+-- teinte de l'illustration selon la finition
+local TINTS = {
+	Gold = rgb(255, 225, 140),
+	Frozen = rgb(195, 235, 255),
+	DarkMatter = rgb(175, 130, 235),
+	Haunted = rgb(255, 205, 160),
+}
 
 local NUMBER = {}
 for i, c in Cards.List do
@@ -308,7 +318,21 @@ function CardArt.build(parent: Instance, id: string, finish: string?, options: {
 			local ring = circle(art, 0.5, 0.58, s, s * 1.0, WHITE, z + 1, 0.82 - k * 0.04)
 			make("UIAspectRatioConstraint", { AspectRatio = 1, DominantAxis = Enum.DominantAxis.Height }, ring)
 		end
-		if card.Image ~= "" then
+		local spot = ImageAtlas.Cards[id]
+		local sheet = spot and Config.Images.Cards[spot[1]] or ""
+		if sheet ~= "" then
+			-- illustration dessinée (planche assets/cards_N.png)
+			make("ImageLabel", {
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				Image = sheet,
+				ImageRectOffset = Vector2.new(spot[2], spot[3]),
+				ImageRectSize = ImageAtlas.CardSize,
+				ImageColor3 = TINTS[finish or "Normal"] or WHITE,
+				ScaleType = Enum.ScaleType.Crop,
+				ZIndex = z + 2,
+			}, art)
+		elseif card.Image ~= "" then
 			make("ImageLabel", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Image = card.Image, ScaleType = Enum.ScaleType.Crop, ZIndex = z + 2 }, art)
 		else
 			portrait(art, id, finish, z + 2)

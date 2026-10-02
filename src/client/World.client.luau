@@ -7,7 +7,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TextChatService = game:GetService("TextChatService")
 
-local Cards = require(ReplicatedStorage.Shared.Cards)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Kit = require(script.Parent.UI.Kit)
@@ -168,7 +167,7 @@ end)
 -- Tapis de course : débloquer le suivant
 --------------------------------------------------------------------
 local treadmillPrompts: { [BasePart]: { train: ProximityPrompt } } = {}
-local treadmillLevel, treadmillCost = 1, nil
+local treadmillLevel = 1
 
 local function updateTreadmill(console: BasePart)
 	local prompts = treadmillPrompts[console]
@@ -205,7 +204,6 @@ local function refreshTreadmills()
 end
 Remotes.State.OnClientEvent:Connect(function(state)
 	treadmillLevel = state.Treadmill
-	treadmillCost = state.TreadmillCost
 	refreshTreadmills()
 end)
 player:GetAttributeChangedSignal("GalleryIndex"):Connect(refreshTreadmills)

@@ -10,8 +10,6 @@
 	cf : au sol, au milieu de l'avant du comptoir, -Z = vers les clients.
 ]]
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
 local GuardModel = require(script.Parent.GuardModel)
 local Signs = require(script.Parent.Signs)
 

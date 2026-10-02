@@ -357,6 +357,17 @@ Config.Music = {} -- ex. { "rbxassetid://1234567890" }
 Config.MusicVolume = 0.25
 
 --------------------------------------------------------------------
+-- IMAGES (planches du dossier assets/, à uploader une fois)
+-- Studio > Asset Manager > Images > Bulk Import, puis clic droit
+-- sur l'image > Copy Asset ID, et colle "rbxassetid://ID" ici.
+-- Tant qu'un ID est vide, le jeu utilise les dessins faits en code.
+--------------------------------------------------------------------
+Config.Images = {
+	Cards = { "", "", "" }, -- cards_1.png, cards_2.png, cards_3.png
+	Icons = { "", "" }, -- icons_1.png, icons_2.png
+}
+
+--------------------------------------------------------------------
 -- BADGES (optionnel, 0 = désactivé)
 --------------------------------------------------------------------
 Config.Badges = {

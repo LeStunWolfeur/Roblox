@@ -3,13 +3,17 @@
 	Ça donne le rendu "objet 3D brillant" des simulateurs Roblox sans avoir
 	besoin d'images uploadées.
 
-	Icons3D.view(kind, props) -> ViewportFrame
+	Icons3D.view(kind, props) -> cadre avec l'icône
+	Si la planche d'icônes est uploadée (Config.Images.Icons), l'icône dessinée
+	(assets/icons_N.png) est utilisée à la place du modèle 3D.
 	Icons3D.entity(cardId, finish, props) -> ViewportFrame avec la créature de la carte
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Config = require(ReplicatedStorage.Shared.Config)
 local Entity = require(ReplicatedStorage.Shared.Entity)
+local ImageAtlas = require(ReplicatedStorage.Shared.ImageAtlas)
 
 local Icons3D = {}
 
@@ -358,6 +362,35 @@ end
 -- props : Parent, Size, Position, AnchorPoint, Rotation, ZIndex, Color, Dir, Fill, Outline
 -- Renvoie un cadre qui contient l'icône et, derrière, sa silhouette sombre un peu plus
 -- grande : ça fait le contour "autocollant" des icônes des simulateurs.
+-- icônes dessinées en blanc dans la planche, colorées ici (couleur par défaut)
+local TINTED = {
+	crate = rgb(245, 160, 70),
+	cardpack = rgb(170, 90, 255),
+	bolt = rgb(255, 210, 40),
+	arrowup = rgb(90, 220, 70),
+	plus = rgb(90, 220, 70),
+}
+
+local function imageIcon(kind: string, holder: Frame, props: { [string]: any }): boolean
+	local spot = ImageAtlas.Icons[kind]
+	local sheet = spot and Config.Images.Icons[spot[1]] or ""
+	if sheet == "" then
+		return false
+	end
+	local img = Instance.new("ImageLabel")
+	img.Name = "Main"
+	img.BackgroundTransparency = 1
+	img.Size = UDim2.fromScale(1, 1)
+	img.Image = sheet
+	img.ImageRectOffset = Vector2.new(spot[2], spot[3])
+	img.ImageRectSize = ImageAtlas.IconSize
+	img.ImageColor3 = TINTED[kind] and (props.Color or TINTED[kind]) or Color3.new(1, 1, 1)
+	img.ScaleType = Enum.ScaleType.Fit
+	img.ZIndex = holder.ZIndex + 1
+	img.Parent = holder
+	return true
+end
+
 function Icons3D.view(kind: string, props: { [string]: any }): Frame
 	local holder = Instance.new("Frame")
 	holder.Name = props.Name or "Icon"
@@ -368,6 +401,10 @@ function Icons3D.view(kind: string, props: { [string]: any }): Frame
 	holder.Rotation = props.Rotation or 0
 	holder.ZIndex = props.ZIndex or 1
 	holder.LayoutOrder = props.LayoutOrder or 0
+	if imageIcon(kind, holder, props) then
+		holder.Parent = props.Parent
+		return holder
+	end
 	local build = builders[kind] or builders.crate
 	local dir = props.Dir or V(0.55, 0.45, 1)
 	local fill = props.Fill or 1.12
