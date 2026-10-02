@@ -2,7 +2,7 @@
 	Construit toute la map, en style briques (picots).
 
 	ZONE SÛRE (z < 0) : la rue des bases. 8 bases de joueurs (4 de chaque côté),
-	  chacune avec son tapis de course, ses présentoirs et sa machine de gradation.
+	  chacune avec son tapis de course, ses supports à cartes et ses étages (rebirth).
 	ROUTE (z > 0) : la suite de la même rue, avec 10 boutiques thématiques.
 	  Avant chaque zone : un panneau avec la vitesse conseillée.
 ]]
@@ -116,10 +116,12 @@ local function signBoard(cf: CFrame, w: number, h: number, color: Color3, text: 
 		local p = (cf * CFrame.new(side * (w / 2 - 1), 0, 0)).Position
 		part({ Name = "Post", Size = Vector3.new(1, postHeight, 1), CFrame = CFrame.new(p.X, postHeight / 2, p.Z), Color = INK }, parent)
 	end
-	local board = part({ Name = "Board", Size = Vector3.new(w, h, 1), CFrame = cf, Color = color, Studs = "top" }, parent)
-	part({ Name = "Trim", Size = Vector3.new(w + 1, 0.6, 1.4), CFrame = cf * CFrame.new(0, h / 2 + 0.3, 0), Color = GOLD, Material = Enum.Material.Neon }, parent)
-	local label = surfaceText(board, Enum.NormalId.Front, text, textColor, 18)
-	surfaceText(board, Enum.NormalId.Back, backText or text, textColor, 18)
+	local board = part({ Name = "Board", Size = Vector3.new(w, h, 1), CFrame = cf, Color = color }, parent)
+	-- première ligne = titre, le reste = sous-titre
+	local title, sub = text:match("^([^\n]*)\n(.*)$")
+	local SignsModule = require(script.Parent.Signs)
+	local label = SignsModule.panel(board, Enum.NormalId.Front, { Title = title or text, Sub = sub, Colors = SignsModule.Palettes.Dark, PixelsPerStud = 20, TitleColor = textColor, SubColor = Color3.new(1, 1, 1) })
+	SignsModule.panel(board, Enum.NormalId.Back, { Title = backText or text, Colors = SignsModule.Palettes.Green, PixelsPerStud = 20 })
 	return board, label
 end
 
@@ -148,12 +150,15 @@ end
 -- BASES DES JOUEURS
 -- Repère local : origine au milieu de l'entrée, -Z = vers l'intérieur.
 -- Devant : tapis de course (droite) et dalle de collecte (gauche).
--- Milieu : 16 présentoirs. Fond : machine de gradation.
+-- Milieu : 8 supports. Fond : mezzanines des étages 2 et 3 (débloquées par rebirth).
 --------------------------------------------------------------------
 local BASE_W = 60
 local BASE_D = 64
 local CASE_COLS = { -21, -7, 7, 21 }
-local CASE_ROWS = { 24.5, 32.5, 40.5, 48.5 }
+-- rangées de supports par étage (profondeur) et hauteur du sol de chaque étage
+local FLOOR_ROWS = { { 24, 36 }, { 50, 58 }, { 50, 58 } }
+local FLOOR_Y = { 1.7, 13.7, 25.7 }
+local MEZZ_FROM = 44 -- les étages 2 et 3 couvrent le fond de la base
 
 local BASE_COLORS = {
 	Color3.fromRGB(255, 70, 110),
@@ -235,7 +240,7 @@ local function buildBase(index: number, entrance: Vector3, inward: Vector3, pare
 	for k = -2, 2 do
 		part({ Name = "BackStripe", Size = Vector3.new(0.5, 10.8, 1.75), CFrame = at(k * 12, y0 + 8.8, BASE_D - 0.8), Color = deep }, folder)
 	end
-	local backSign = part({ Name = "BackSign", Size = Vector3.new(26, 6.5, 0.4), CFrame = at(0, y0 + 9.4, BASE_D - 1.8), Color = slate }, folder)
+	local backSign = part({ Name = "BackSign", Size = Vector3.new(26, 6.5, 0.4), CFrame = at(0, y0 + 7.4, BASE_D - 1.8), Color = deep }, folder)
 
 	-- tours d'angle à l'avant
 	for _, side in { -1, 1 } do
@@ -266,8 +271,8 @@ local function buildBase(index: number, entrance: Vector3, inward: Vector3, pare
 	local header = part({ Name = "Header", Size = Vector3.new(26, 6, 2.6), CFrame = at(0, y0 + 18.2, 1.2), Color = white }, folder)
 	part({ Name = "HeaderGlow", Size = Vector3.new(26.2, 0.3, 2.8), CFrame = at(0, y0 + 15.1, 1.2), Color = color, Material = Enum.Material.Neon, CanCollide = false }, folder)
 	local _ = header
-	local signFront = part({ Name = "Banner", Size = Vector3.new(25, 5.2, 0.3), CFrame = at(0, y0 + 18.2, -0.25), Color = slate }, folder)
-	local signBack = part({ Name = "BannerBack", Size = Vector3.new(25, 5.2, 0.3), CFrame = at(0, y0 + 18.2, 2.65), Color = slate }, folder)
+	local signFront = part({ Name = "Banner", Size = Vector3.new(25, 5.2, 0.3), CFrame = at(0, y0 + 18.2, -0.25), Color = color }, folder)
+	local signBack = part({ Name = "BannerBack", Size = Vector3.new(25, 5.2, 0.3), CFrame = at(0, y0 + 18.2, 2.65), Color = color }, folder)
 	part({ Name = "Canopy", Size = Vector3.new(21, 0.6, 7), CFrame = at(0, y0 + 14.3, -1.8), Color = color }, folder)
 	part({ Name = "CanopyEdge", Size = Vector3.new(21.2, 0.3, 0.3), CFrame = at(0, y0 + 14.0, -5.3), Color = white, Material = Enum.Material.Neon }, folder)
 	for _, x in { -6, 0, 6 } do
@@ -287,22 +292,81 @@ local function buildBase(index: number, entrance: Vector3, inward: Vector3, pare
 	local signTitles = { t1, t2, t3 }
 	local signSubs = { s1, s2, s3 }
 
-	-- présentoirs
+	-- ÉTAGES 2 et 3 (mezzanines au fond), visibles seulement après les rebirths
+	local floors = {}
+	local pads = {}
+	for f = 2, 3 do
+		local ff = Instance.new("Folder")
+		ff.Name = "Floor" .. f
+		ff.Parent = folder
+		floors[f] = ff
+		local y = FLOOR_Y[f]
+		local depth = BASE_D - MEZZ_FROM
+		local midD = MEZZ_FROM + depth / 2
+		part({ Name = "Slab", Size = Vector3.new(BASE_W - 2, 1.2, depth), CFrame = at(0, y - 0.6, midD), Color = slate }, ff)
+		for i = 0, BASE_W / 10 - 1 do
+			for j = 0, 1 do
+				part({
+					Name = "Tile",
+					Size = Vector3.new(10, 0.2, depth / 2),
+					CFrame = at(-BASE_W / 2 + (i + 0.5) * 10, y + 0.1, MEZZ_FROM + (j + 0.5) * depth / 2),
+					Color = ((i + j + f) % 2 == 0) and light or PAPER,
+				}, ff)
+			end
+		end
+		part({ Name = "SlabGlow", Size = Vector3.new(BASE_W - 2, 0.3, 0.3), CFrame = at(0, y - 1.25, MEZZ_FROM), Color = color, Material = Enum.Material.Neon, CanCollide = false }, ff)
+		-- garde-corps vitré à l'avant de la mezzanine
+		part({ Name = "RailGlass", Size = Vector3.new(BASE_W - 2, 3, 0.3), CFrame = at(0, y + 1.6, MEZZ_FROM + 0.3), Color = Color3.fromRGB(190, 225, 255), Material = Enum.Material.Glass, Transparency = 0.55 }, ff)
+		part({ Name = "RailTop", Size = Vector3.new(BASE_W - 2, 0.4, 0.6), CFrame = at(0, y + 3.2, MEZZ_FROM + 0.3), Color = white }, ff)
+		for _, x in { -BASE_W / 2 + 1.2, BASE_W / 2 - 1.2 } do
+			part({ Name = "SideGlass", Size = Vector3.new(0.3, 3, depth), CFrame = at(x, y + 1.6, midD), Color = Color3.fromRGB(190, 225, 255), Material = Enum.Material.Glass, Transparency = 0.55 }, ff)
+			part({ Name = "SideRail", Size = Vector3.new(0.6, 0.4, depth), CFrame = at(x, y + 3.2, midD), Color = white }, ff)
+		end
+		-- poteaux sous la mezzanine
+		for _, x in { -27, -10, 10, 27 } do
+			part({ Name = "Column", Size = Vector3.new(1.6, 12, 1.6), CFrame = at(x, y - 7.2, MEZZ_FROM + 0.8), Color = white }, ff)
+		end
+		-- mur du fond qui monte avec les étages
+		part({ Name = "BackWallUp", Size = Vector3.new(BASE_W, 12, 1.6), CFrame = at(0, y + 4.4, BASE_D - 0.8), Color = color }, ff)
+		part({ Name = "BackBandUp", Size = Vector3.new(BASE_W + 0.2, 0.8, 1.8), CFrame = at(0, y + 10, BASE_D - 0.8), Color = white }, ff)
+		local floorSign = part({ Name = "FloorSign", Size = Vector3.new(12, 3.2, 0.3), CFrame = at(0, y + 6.6, BASE_D - 1.8), Color = slate }, ff)
+		Signs.panel(floorSign, Enum.NormalId.Front, { Title = "FLOOR " .. f, Colors = { color:Lerp(Color3.new(1, 1, 1), 0.45), color, color:Lerp(Props.INK, 0.3), color:Lerp(Props.INK, 0.65) }, PixelsPerStud = 30 })
+		-- plateformes pour monter / descendre
+		local function pad(x: number, d: number, py: number, target: CFrame, text: string, padColor: Color3)
+			local p = part({ Name = "Pad", Size = Vector3.new(0.4, 5, 5), Shape = Enum.PartType.Cylinder, CFrame = at(x, py + 0.2, d) * CFrame.Angles(0, 0, math.rad(90)), Color = padColor, Material = Enum.Material.Neon, CanCollide = false }, ff)
+			part({ Name = "PadRing", Size = Vector3.new(0.3, 5.8, 5.8), Shape = Enum.PartType.Cylinder, CFrame = at(x, py + 0.1, d) * CFrame.Angles(0, 0, math.rad(90)), Color = white }, ff)
+			local label = billboard(p, UDim2.fromOffset(150, 40), Vector3.new(0, 3, 0), text, padColor, 40)
+			label.Parent.LightInfluence = 0
+			table.insert(pads, { Part = p, Target = target, Floor = f })
+		end
+		local up = Color3.fromRGB(90, 255, 140)
+		local down = Color3.fromRGB(255, 200, 70)
+		if f == 2 then
+			pad(0, MEZZ_FROM - 3.5, FLOOR_Y[1], at(0, FLOOR_Y[2] + 3, 54), "UP TO FLOOR 2", up)
+			pad(-14, MEZZ_FROM + 3, y, at(0, FLOOR_Y[1] + 3, 30), "DOWN", down)
+		else
+			pad(14, MEZZ_FROM + 3, FLOOR_Y[2], at(0, FLOOR_Y[3] + 3, 54), "UP TO FLOOR 3", up)
+			pad(-14, MEZZ_FROM + 3, y, at(0, FLOOR_Y[2] + 3, 54), "DOWN", down)
+		end
+	end
+
+	-- supports : 8 par étage
 	local cases = {}
 	local n = 0
-	for _, depth in CASE_ROWS do
-		for _, x in CASE_COLS do
-			n += 1
-			-- le présentoir regarde vers l'entrée (+Z local)
-			local show = Showcase.build(at(x, 1.7, depth), folder, "Case" .. n)
-			local label = billboard(show.Top, UDim2.fromOffset(170, 34), Vector3.new(0, -2.4, 0), "", PAPER, 45)
-			cases[n] = {
-				Index = n,
-				Show = show,
-				Plinth = show.Base,
-				Label = label,
-				CardCFrame = show.CardCFrame,
-			}
+	for f = 1, 3 do
+		for _, depth in FLOOR_ROWS[f] do
+			for _, x in CASE_COLS do
+				n += 1
+				-- le présentoir regarde vers l'entrée (+Z local)
+				local show = Showcase.build(at(x, FLOOR_Y[f], depth), f == 1 and folder or floors[f], "Case" .. n, 0.62)
+				cases[n] = {
+					Index = n,
+					Floor = f,
+					Show = show,
+					Plinth = show.Base,
+					CardCFrame = show.CardCFrame,
+				}
+			end
 		end
 	end
 
@@ -398,20 +462,13 @@ local function buildBase(index: number, entrance: Vector3, inward: Vector3, pare
 	local tagPrice = tagText("Price", 32, 46, 3.5)
 	local tagSub = tagText("Sub", 80, 22, 2)
 
-	-- machine de gradation (fond)
-	local machine = part({ Name = "GradingMachine", Size = Vector3.new(20, 9, 5), CFrame = at(0, 6.2, 58), Color = Color3.fromRGB(45, 50, 72), Studs = "all" }, folder)
-	part({ Name = "MachineTop", Size = Vector3.new(21, 1, 6), CFrame = at(0, 11.2, 58), Color = color, Studs = "top" }, folder)
-	local machineScreen = part({ Name = "MachineScreen", Size = Vector3.new(16, 4.6, 0.3), CFrame = at(0, 7.2, 55.4), Color = Color3.fromRGB(15, 25, 50), Material = Enum.Material.SmoothPlastic }, folder)
-	local _, machineLabel = Signs.panel(machineScreen, Enum.NormalId.Back, { Title = "GRADING LAB", Sub = "", Colors = Signs.Palettes.Blue, PixelsPerStud = 30 })
-	for k = -2, 2 do
-		part({ Name = "MachineSlot", Size = Vector3.new(2.4, 0.5, 0.4), CFrame = at(k * 3.2, 3.6, 55.4), Color = Color3.fromRGB(0, 255, 200), Material = Enum.Material.Neon }, folder)
+	-- coin salon au fond du rez-de-chaussée (sous la mezzanine)
+	for _, x in { -18, 18 } do
+		part({ Name = "Sofa", Size = Vector3.new(8, 1.6, 3), CFrame = at(x, 2.5, 60), Color = color:Lerp(Props.INK, 0.25) }, folder)
+		part({ Name = "SofaBack", Size = Vector3.new(8, 2.4, 1), CFrame = at(x, 3.6, 61.6), Color = color:Lerp(Props.INK, 0.35) }, folder)
+		Props.plantPot(at(x + (x > 0 and -6 or 6), 1.7, 60).Position, folder)
 	end
-	for _, side in { -1, 1 } do
-		part({ Name = "Tube", Size = Vector3.new(9, 1.6, 1.6), Shape = Enum.PartType.Cylinder, CFrame = at(side * 11.5, 6, 58) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(150, 255, 230), Material = Enum.Material.Glass, Transparency = 0.3 }, folder)
-	end
-	local labPrompt = prompt(machine, "Open", "Grading Lab", 0, 16)
-	labPrompt.Name = "LabPrompt"
-	local machineTag = billboard(machine, UDim2.fromOffset(220, 40), Vector3.new(0, 8.5, 0), "", Color3.fromRGB(255, 220, 80), 80)
+	part({ Name = "Rug", Size = Vector3.new(26, 0.08, 10), CFrame = at(0, 1.75, 55), Color = deep, Material = Enum.Material.Fabric }, folder)
 
 	-- décor de façade : jardinières de chaque côté de l'entrée
 	for _, side in { -1, 1 } do
@@ -427,6 +484,7 @@ local function buildBase(index: number, entrance: Vector3, inward: Vector3, pare
 		Cases = cases,
 		SignTitles = signTitles,
 		SignSubs = signSubs,
+		SignFrames = { t1.Parent, t2.Parent, t3.Parent },
 		Collect = collect,
 		CollectLabel = collectLabel,
 		Spawn = at(0, 5, 16) * CFrame.Angles(0, math.pi, 0),
@@ -445,9 +503,8 @@ local function buildBase(index: number, entrance: Vector3, inward: Vector3, pare
 			TagPrice = tagPrice,
 			TagSub = tagSub,
 		},
-		Machine = machine,
-		MachineLabel = machineLabel,
-		MachineTag = machineTag,
+		Floors = floors,
+		Pads = pads,
 	}
 end
 
@@ -547,8 +604,13 @@ local function buildZone(i: number, zone, parent: Instance)
 		Props.light(cap, zone.Accent, 30, 1.5)
 	end
 	local arch = part({ Name = "Arch", Size = Vector3.new(road * 2 + 10, 7, 3), CFrame = CFrame.new(0, 26.5, gateZ), Color = INK, Studs = "top" }, folder)
-	surfaceText(arch, Enum.NormalId.Front, ("%d · %s"):format(i, zone.Name:upper()), zone.Accent, 20)
-	surfaceText(arch, Enum.NormalId.Back, "BACK TO YOUR BASE", Color3.fromRGB(80, 230, 140), 20)
+	Signs.panel(arch, Enum.NormalId.Front, {
+		Title = zone.Name:upper(),
+		Sub = zone.Speed > 0 and ("SHOP %d  ·  SPEED %s"):format(i, Format.short(zone.Speed)) or ("SHOP %d  ·  NO SPEED NEEDED"):format(i),
+		Colors = { zone.Accent:Lerp(Color3.new(1, 1, 1), 0.4), zone.Main, zone.Main:Lerp(INK, 0.4), INK },
+		PixelsPerStud = 20,
+	})
+	Signs.panel(arch, Enum.NormalId.Back, { Title = "BACK TO YOUR BASE", Colors = Signs.Palettes.Green, PixelsPerStud = 20 })
 
 	-- PANNEAU VITESSE CONSEILLÉE, juste avant l'arche, à droite de la route
 	local rec = zone.Speed > 0 and ("RECOMMENDED SPEED\n" .. Format.short(zone.Speed)) or "NO SPEED NEEDED"
@@ -598,7 +660,12 @@ local function buildZone(i: number, zone, parent: Instance)
 	part({ Name = "Cornice", Size = Vector3.new(72, 2, 3), CFrame = at(0, 22.5, -0.8), Color = zone.Accent, Studs = "top" }, folder)
 	local shopSign = part({ Name = "ShopSign", Size = Vector3.new(44, 7, 0.8), CFrame = at(0, 28.5, -0.8), Color = INK }, folder)
 	part({ Name = "ShopSignTrim", Size = Vector3.new(45.5, 8.5, 0.5), CFrame = at(0, 28.5, -0.4), Color = zone.Accent, Material = Enum.Material.Neon }, folder)
-	surfaceText(shopSign, Enum.NormalId.Back, zone.Name:upper(), zone.Accent, 25)
+	Signs.panel(shopSign, Enum.NormalId.Back, {
+		Title = zone.Name:upper(),
+		Sub = "Guarded by " .. zone.Guardian,
+		Colors = { zone.Accent:Lerp(Color3.new(1, 1, 1), 0.4), zone.Main, zone.Main:Lerp(INK, 0.4), INK },
+		PixelsPerStud = 22,
+	})
 	local signLight = Instance.new("SurfaceLight")
 	signLight.Face = Enum.NormalId.Back
 	signLight.Color = zone.Accent
@@ -745,8 +812,18 @@ function MapBuilder.Build()
 		part({ Name = "ExitPillar", Size = Vector3.new(5, 30, 5), CFrame = CFrame.new(side * (road + 2.5), 15, MapBuilder.HubEdgeZ + 2), Color = Color3.fromRGB(255, 70, 110), Studs = "all" }, root)
 	end
 	local exitArch = part({ Name = "ExitArch", Size = Vector3.new(road * 2 + 10, 7, 3), CFrame = CFrame.new(0, 26.5, MapBuilder.HubEdgeZ + 2), Color = Color3.fromRGB(255, 70, 110), Studs = "top" }, root)
-	surfaceText(exitArch, Enum.NormalId.Front, "TO THE SHOPS", PAPER, 20)
-	surfaceText(exitArch, Enum.NormalId.Back, "SAFE ZONE", Color3.fromRGB(80, 230, 140), 20)
+	Signs.panel(exitArch, Enum.NormalId.Front, { Title = "TO THE SHOPS", Colors = Signs.Palettes.Red, PixelsPerStud = 20 })
+	Signs.panel(exitArch, Enum.NormalId.Back, { Title = "SAFE ZONE", Colors = Signs.Palettes.Green, PixelsPerStud = 20 })
+	-- grand écran : minuteur du refresh des boutiques
+	local screen = part({ Name = "RefreshScreen", Size = Vector3.new(26, 5, 0.8), CFrame = CFrame.new(0, 19.5, MapBuilder.HubEdgeZ + 2), Color = Props.INK }, root)
+	for _, side in { -1, 1 } do
+		part({ Name = "ScreenCable", Size = Vector3.new(0.3, 4, 0.3), CFrame = CFrame.new(side * 11, 23.5, MapBuilder.HubEdgeZ + 2), Color = Props.INK }, root)
+	end
+	local refreshLabels = {}
+	for _, face in { Enum.NormalId.Front, Enum.NormalId.Back } do
+		local label = Signs.panel(screen, face, { Title = "SHOPS REFRESH IN 10:00", Colors = Signs.Palettes.Dark, PixelsPerStud = 24, TitleColor = Color3.fromRGB(255, 220, 80) })
+		table.insert(refreshLabels, label)
+	end
 	part({ Name = "Approach", Size = Vector3.new(road * 2, 0.2, MapBuilder.ZoneGateZ(1) - MapBuilder.HubEdgeZ), CFrame = CFrame.new(0, 0.1, (MapBuilder.HubEdgeZ + MapBuilder.ZoneGateZ(1)) / 2), Color = Color3.fromRGB(52, 54, 68) }, root)
 	part({ Name = "ApproachGround", Size = Vector3.new(half * 2, 1, MapBuilder.ZoneGateZ(1) - MapBuilder.HubEdgeZ), CFrame = CFrame.new(0, -0.5, (MapBuilder.HubEdgeZ + MapBuilder.ZoneGateZ(1)) / 2), Color = GRASS, Studs = "top" }, root)
 	for _, side in { -1, 1 } do
@@ -770,7 +847,7 @@ function MapBuilder.Build()
 		decal:Destroy()
 	end
 	local boards = {}
-	for _, info in { { "TopIncome", "TOP CASH/S", -40 }, { "TopSpeed", "TOP SPEED", 40 } } do
+	for _, info in { { "TopIncome", "TOP CASH/S", -50 }, { "TopSpeed", "TOP SPEED", 50 } } do
 		local board = part({ Name = info[1], Size = Vector3.new(18, 24, 1), CFrame = CFrame.new(info[3], 14, backZ + 6) * CFrame.Angles(0, math.pi, 0), Color = INK }, root)
 		part({ Name = "BoardFrame", Size = Vector3.new(19.5, 25.5, 0.8), CFrame = board.CFrame * CFrame.new(0, 0, 0.3), Color = GOLD, Material = Enum.Material.Metal }, root)
 		part({ Name = "BoardBase", Size = Vector3.new(20, 2, 4), CFrame = CFrame.new(info[3], 1, backZ + 6), Color = INK, Studs = "top" }, root)
@@ -779,8 +856,9 @@ function MapBuilder.Build()
 
 	-- les deux stands au bout de la rue : améliorations (gauche) et vente (droite)
 	local stands = {
-		upgrades = Stands.build("upgrades", CFrame.lookAt(Vector3.new(-13, 0, backZ + 9), Vector3.new(-13, 0, backZ + 20)), root),
-		sell = Stands.build("sell", CFrame.lookAt(Vector3.new(13, 0, backZ + 9), Vector3.new(13, 0, backZ + 20)), root),
+		upgrades = Stands.build("upgrades", CFrame.lookAt(Vector3.new(-22, 0, backZ + 9), Vector3.new(-22, 0, backZ + 20)), root),
+		grading = Stands.build("grading", CFrame.lookAt(Vector3.new(0, 0, backZ + 9), Vector3.new(0, 0, backZ + 20)), root),
+		packs = Stands.build("packs", CFrame.lookAt(Vector3.new(22, 0, backZ + 9), Vector3.new(22, 0, backZ + 20)), root),
 	}
 
 	-- bases : 4 de chaque côté de la rue, entrée face à la rue
@@ -823,6 +901,7 @@ function MapBuilder.Build()
 		Zones = zones,
 		Boards = boards,
 		Stands = stands,
+		RefreshLabels = refreshLabels,
 	}
 end
 

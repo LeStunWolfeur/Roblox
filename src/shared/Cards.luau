@@ -31,13 +31,14 @@ Cards.Finishes = {
 	Normal = { Name = "", Mult = 1, Chance = 0 },
 	Holo = { Name = "Holo", Mult = 1.5, Chance = 0.08, Color = Color3.fromRGB(150, 230, 255) },
 	Gold = { Name = "Gold", Mult = 2.5, Chance = 0.03, Color = Color3.fromRGB(255, 200, 50) },
+	Diamond = { Name = "Diamond", Mult = 3.5, Chance = 0.012, Color = Color3.fromRGB(190, 245, 255) },
 	Rainbow = { Name = "Rainbow", Mult = 5, Chance = 0.007, Color = Color3.fromRGB(255, 120, 200) },
 	DarkMatter = { Name = "Dark Matter", Mult = 10, Chance = 0.001, Color = Color3.fromRGB(110, 40, 200) },
 	Haunted = { Name = "Haunted", Mult = 4, Chance = 0.02, Color = Color3.fromRGB(255, 120, 20), Season = "Halloween" },
 	Frozen = { Name = "Frozen", Mult = 4, Chance = 0.02, Color = Color3.fromRGB(170, 240, 255), Season = "Winter" },
 }
 -- ordre de tirage : de la plus rare à la plus commune
-Cards.FinishRollOrder = { "DarkMatter", "Rainbow", "Haunted", "Frozen", "Gold", "Holo" }
+Cards.FinishRollOrder = { "DarkMatter", "Rainbow", "Haunted", "Frozen", "Diamond", "Gold", "Holo" }
 
 --------------------------------------------------------------------
 -- NOTE DE CONDITION (comme une carte gradée PSA), tirée à l'achat

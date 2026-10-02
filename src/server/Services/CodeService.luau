@@ -54,7 +54,7 @@ function CodeService.Redeem(player: Player, text: any)
 	end
 	if code.Card then
 		Hub.Grading.Deliver(player, Hub.Loot.RollCard(code.Card), Hub.Loot.RollFinish())
-		table.insert(parts, "a " .. code.Card .. " card")
+		table.insert(parts, "a " .. code.Card .. " card in your base")
 	end
 	Remotes.Notify:FireClient(player, "Code redeemed: " .. table.concat(parts, " + "), "reward")
 	Hub.Players.SendState(player)

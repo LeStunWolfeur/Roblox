@@ -1,4 +1,4 @@
--- Côté client : prompts personnels (vitrines, tapis), portails de vitesse,
+-- Côté client : boutons des supports, prompt du tapis, portails de vitesse,
 -- claques reçues, animations des cartes, tags dans le chat
 
 local CollectionService = game:GetService("CollectionService")
@@ -10,6 +10,7 @@ local TextChatService = game:GetService("TextChatService")
 local Cards = require(ReplicatedStorage.Shared.Cards)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local Kit = require(script.Parent.UI.Kit)
 
 local player = Players.LocalPlayer
 
@@ -24,65 +25,149 @@ local function makePrompt(parent: Instance, name: string): ProximityPrompt
 end
 
 --------------------------------------------------------------------
--- Vitrines de MA galerie : vendre / débloquer
+-- Supports de MA base : boutons cliquables qui apparaissent quand on s'approche
+--   carte posée : VENDRE (avec confirmation) / RAMASSER
+--   support vide : POSER ICI (si on tient une carte)
+--   support suivant : DÉBLOQUER $X
 --------------------------------------------------------------------
-local casePrompts: { [BasePart]: ProximityPrompt } = {}
+local playerGui = player:WaitForChild("PlayerGui")
+local caseGuis: { [BasePart]: any } = {}
+local SHOW_DISTANCE = 13
 
-local function updateCase(plinth: BasePart)
-	local prompt = casePrompts[plinth]
-	if not prompt then
+local function caseButton(parent: Instance, text: string, palette: string, order: number, onClick: () -> ()): (Frame, TextLabel?)
+	local face, _, label = Kit.button({ Parent = parent, Size = UDim2.fromOffset(118, 46), Palette = palette, Text = text, LayoutOrder = order, TextStroke = 2.5 }, onClick)
+	return face, label
+end
+
+local function buildCaseGui(plinth: BasePart)
+	local info = caseGuis[plinth]
+	if info then
+		info.gui:Destroy()
+	end
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "CaseButtons"
+	gui.Adornee = plinth
+	gui.Size = UDim2.fromOffset(260, 56)
+	gui.StudsOffset = Vector3.new(0, 2.4, 0)
+	gui.ResetOnSpawn = false
+	gui.Enabled = false
+	gui.Active = true
+	gui.LightInfluence = 0
+	gui.Parent = playerGui
+	local row = Instance.new("Frame")
+	row.BackgroundTransparency = 1
+	row.Size = UDim2.fromScale(1, 1)
+	row.Parent = gui
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.Padding = UDim.new(0, 8)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = row
+	info = { gui = gui, row = row, key = "" }
+	caseGuis[plinth] = info
+	return info
+end
+
+local function refreshCase(plinth: BasePart)
+	local mine = plinth:GetAttribute("GalleryIndex") == player:GetAttribute("GalleryIndex")
+	local stateName = plinth:GetAttribute("State")
+	local holding = player:GetAttribute("Carrying") ~= nil
+	local key = table.concat({ tostring(mine), tostring(stateName), tostring(holding), tostring(plinth:GetAttribute("Value")), tostring(plinth:GetAttribute("Cost")) }, "|")
+	local info = caseGuis[plinth] or buildCaseGui(plinth)
+	if info.key == key then
 		return
 	end
-	local mine = plinth:GetAttribute("GalleryIndex") == player:GetAttribute("GalleryIndex")
-	local cardId = plinth:GetAttribute("CardId")
-	local cost = plinth:GetAttribute("Cost")
-	if mine and cardId then
-		prompt.ActionText = "Sell " .. Format.cash(plinth:GetAttribute("Value") or 0)
-		prompt.ObjectText = Cards.DisplayName(cardId, plinth:GetAttribute("Finish")) .. "  G" .. tostring(plinth:GetAttribute("Grade"))
-		prompt.HoldDuration = 1.2
-		prompt.Enabled = true
-	elseif mine and cost then
-		prompt.ActionText = "Unlock " .. Format.cash(cost)
-		prompt.ObjectText = "Display case"
-		prompt.HoldDuration = 0.3
-		prompt.Enabled = true
-	else
-		prompt.Enabled = false
+	info.key = key
+	for _, c in info.row:GetChildren() do
+		if c:IsA("GuiObject") then
+			c:Destroy()
+		end
+	end
+	info.active = false
+	if not mine then
+		return
+	end
+	local index = plinth:GetAttribute("CaseIndex")
+	if stateName == "card" then
+		info.active = true
+		local confirm = false
+		local sellFace, sellLabel
+		sellFace, sellLabel = caseButton(info.row, "SELL " .. Format.cash(plinth:GetAttribute("Value") or 0), "Red", 1, function()
+			if not confirm then
+				confirm = true
+				if sellLabel then
+					sellLabel.Text = "SURE?"
+				end
+				Kit.paint(sellFace, "Orange")
+				task.delay(2.5, function()
+					confirm = false
+					if sellLabel and sellLabel.Parent then
+						sellLabel.Text = "SELL " .. Format.cash(plinth:GetAttribute("Value") or 0)
+						Kit.paint(sellFace, "Red")
+					end
+				end)
+				return
+			end
+			Remotes.Action:FireServer("SellCase", index)
+		end)
+		if not holding then
+			caseButton(info.row, "PICK UP", "Blue", 2, function()
+				Remotes.Action:FireServer("PickUp", index)
+			end)
+		end
+	elseif stateName == "empty" and holding and player:GetAttribute("CarryFromBase") then
+		info.active = true
+		caseButton(info.row, "PLACE HERE", "Green", 1, function()
+			Remotes.Action:FireServer("Place", index)
+		end)
+	elseif stateName == "buy" then
+		info.active = true
+		caseButton(info.row, "UNLOCK " .. Format.cash(plinth:GetAttribute("Cost") or 0), "Yellow", 1, function()
+			Remotes.Action:FireServer("UnlockCase")
+		end)
 	end
 end
 
 local function hookCase(plinth: Instance)
-	if not plinth:IsA("BasePart") or casePrompts[plinth] then
+	if not plinth:IsA("BasePart") or caseGuis[plinth] then
 		return
 	end
-	local prompt = makePrompt(plinth, "CasePrompt")
-	casePrompts[plinth] = prompt
-	prompt.Triggered:Connect(function()
-		if plinth:GetAttribute("CardId") then
-			Remotes.Action:FireServer("SellCase", plinth:GetAttribute("CaseIndex"))
-		elseif plinth:GetAttribute("Cost") then
-			Remotes.Action:FireServer("UnlockCase")
-		end
-	end)
+	buildCaseGui(plinth)
 	plinth.AttributeChanged:Connect(function()
-		updateCase(plinth)
+		refreshCase(plinth)
 	end)
-	updateCase(plinth)
+	refreshCase(plinth)
 end
 for _, p in CollectionService:GetTagged("Case") do
 	hookCase(p)
 end
 CollectionService:GetInstanceAddedSignal("Case"):Connect(hookCase)
-player:GetAttributeChangedSignal("GalleryIndex"):Connect(function()
-	for plinth in casePrompts do
-		updateCase(plinth)
+local function refreshAllCases()
+	for plinth in caseGuis do
+		refreshCase(plinth)
+	end
+end
+player:GetAttributeChangedSignal("GalleryIndex"):Connect(refreshAllCases)
+player:GetAttributeChangedSignal("Carrying"):Connect(refreshAllCases)
+player:GetAttributeChangedSignal("CarryFromBase"):Connect(refreshAllCases)
+-- les boutons ne s'affichent que près du support
+task.spawn(function()
+	while true do
+		task.wait(0.2)
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		for plinth, info in caseGuis do
+			local near = root ~= nil and (root.Position - plinth.Position).Magnitude < SHOW_DISTANCE and plinth.Transparency < 1
+			info.gui.Enabled = info.active == true and near
+		end
 	end
 end)
 
 --------------------------------------------------------------------
 -- Tapis de course : débloquer le suivant
 --------------------------------------------------------------------
-local treadmillPrompts: { [BasePart]: { train: ProximityPrompt, upgrade: ProximityPrompt } } = {}
+local treadmillPrompts: { [BasePart]: { train: ProximityPrompt } } = {}
 local treadmillLevel, treadmillCost = 1, nil
 
 local function updateTreadmill(console: BasePart)
@@ -92,9 +177,7 @@ local function updateTreadmill(console: BasePart)
 	prompts.train.Enabled = mine and not training
 	prompts.train.ActionText = "Train"
 	prompts.train.ObjectText = "Treadmill · Level " .. treadmillLevel
-	prompts.upgrade.Enabled = mine and treadmillCost ~= nil
-	prompts.upgrade.ActionText = treadmillCost and ("Upgrade " .. Format.cash(treadmillCost)) or "Max level"
-	prompts.upgrade.ObjectText = ("Level %d > %d"):format(treadmillLevel, treadmillLevel + 1)
+	-- l'amélioration se fait uniquement en cliquant sur le gros bouton à côté du tapis
 end
 
 local function hookTreadmill(console: Instance)
@@ -104,17 +187,9 @@ local function hookTreadmill(console: Instance)
 	local train = makePrompt(console, "TrainPrompt")
 	train.MaxActivationDistance = 14
 	train.KeyboardKeyCode = Enum.KeyCode.E
-	local upgrade = makePrompt(console, "UpgradePrompt")
-	upgrade.MaxActivationDistance = 14
-	upgrade.KeyboardKeyCode = Enum.KeyCode.F
-	upgrade.HoldDuration = 0.3
-	upgrade.UIOffset = Vector2.new(0, 80)
-	treadmillPrompts[console] = { train = train, upgrade = upgrade }
+	treadmillPrompts[console] = { train = train }
 	train.Triggered:Connect(function()
 		Remotes.Action:FireServer("TrainStart")
-	end)
-	upgrade.Triggered:Connect(function()
-		Remotes.Action:FireServer("UpgradeTreadmill")
 	end)
 	updateTreadmill(console)
 end
@@ -191,7 +266,7 @@ end)
 local displayBase: { [BasePart]: CFrame } = {}
 local function hookDisplay(part: Instance)
 	if part:IsA("BasePart") then
-		displayBase[part] = part.CFrame
+		displayBase[part] = part:GetAttribute("BaseCFrame") or part.CFrame
 		part.Destroying:Connect(function()
 			displayBase[part] = nil
 		end)
@@ -223,7 +298,8 @@ RunService.RenderStepped:Connect(function()
 	local t = os.clock()
 	for part, base in displayBase do
 		if part.Parent then
-			part.CFrame = base * CFrame.new(0, math.sin(t * 1.6) * 0.15, 0) * CFrame.Angles(0, math.sin(t * 0.8) * 0.35, 0)
+			-- la carte flotte et tourne lentement sur elle-même
+			part.CFrame = base * CFrame.new(0, math.sin(t * 1.6) * 0.25, 0) * CFrame.Angles(0, t * 0.9, 0)
 		end
 	end
 	local offset = ((t * 0.6) % 2) - 1

@@ -76,8 +76,12 @@ function PlayerService.CashMultiplier(player: Player): number
 	if MonetizationService.Owns(player, "DoubleCash") then
 		m *= 2
 	end
-	m *= 1 + indexCount(data) * Config.IndexBonusPerCard
+	m *= 1 + indexCount(data) * Config.IndexBonusPerCard + (data.CashBonus or 0)
 	m *= 1 + PlayerService.FriendBoost(player)
+	-- boost des gros packs
+	if (player:GetAttribute("CashBoostUntil") or 0) > os.time() then
+		m *= 1 + Config.PackCashBoost
+	end
 	return m
 end
 
@@ -137,11 +141,27 @@ function PlayerService.SendState(player: Player)
 		TreadmillCost = data.Treadmill < Config.TreadmillMaxLevel and Config.TreadmillCost(data.Treadmill) or nil,
 		BestZone = data.BestZone,
 		Cases = Hub.Gallery.CaseCount(player),
+		MaxCases = Hub.Gallery.MaxCases(player),
+		Floors = Hub.Gallery.Floors(player),
+		NextCaseCost = Config.CaseCost(data.Cases),
 		CardCount = #data.Cards,
 		Cards = data.Cards,
-		Raw = data.Raw,
-		Grading = data.Grading,
-		GradingSlots = Hub.Grading.SlotCount(player),
+		Storage = data.Storage,
+		Held = (function()
+			local c = Hub.Zones.GetCarry(player)
+			if not c then
+				return nil
+			end
+			return { Id = c.Id, F = c.F, G = c.G, FromBase = c.Zone == 0, GradeCost = Hub.Grading.Cost(player, c.Id, c.F) }
+		end)(),
+		Packs = {
+			Remaining = Hub.Packs.Remaining(player),
+			NextAt = Hub.Packs.NextRestock(),
+			Luck = data.PackLuck,
+		},
+		IndexClaimed = data.IndexClaimed,
+		CashBonus = data.CashBonus,
+		CashBoostUntil = player:GetAttribute("CashBoostUntil"),
 		Passes = MonetizationService.OwnedList(player),
 		Index = index,
 		Steals = data.Steals,
@@ -184,6 +204,24 @@ function PlayerService.OnCardGained(player: Player, id: string, finish: string, 
 	PlayerService.SendState(player)
 end
 
+-- Nouvelle carte possédée : index, badges
+function PlayerService.Discover(player: Player, id: string)
+	local data = DataService.Get(player)
+	if not data then
+		return
+	end
+	local new = not data.Index[id]
+	data.Index[id] = true
+	if Cards.Rarities[Cards.ById[id].Rarity].Order >= Cards.Rarities.Legendary.Order then
+		awardBadge(player, "FirstLegendary")
+	end
+	if new then
+		notify(player, "New card in your Index: " .. Cards.Name(id), "reward")
+	end
+end
+
+PlayerService.Badge = awardBadge
+
 function PlayerService.OnSteal(player: Player, id: string, finish: string)
 	awardBadge(player, "FirstSteal")
 	local card = Cards.ById[id]
@@ -216,65 +254,76 @@ function actions.SellCase(player: Player, case: any)
 	end
 end
 
--- Vendre toutes les cartes d'un coup. which = "raw" (en attente au labo),
--- "base" (exposées dans la base) ou "all"
-function actions.SellAll(player: Player, which: any)
-	local data = DataService.Get(player)
-	if not data or (which ~= "raw" and which ~= "base" and which ~= "all") then
-		return
-	end
-	local total, count = 0, 0
-	if which ~= "base" then
-		for _, raw in data.Raw do
-			total += Cards.RawSellValue(raw.Id, raw.F)
-			count += 1
-		end
-		table.clear(data.Raw)
-	end
-	if which ~= "raw" then
-		for _, c in data.Cards do
-			total += Cards.SellValue(c.Id, c.F, c.G)
-			count += 1
-		end
-		table.clear(data.Cards)
-		Hub.Gallery.Render(player)
-	end
-	if count == 0 then
-		notify(player, "No cards to sell", "error")
-		return
-	end
-	data.Cash += total
-	player:SetAttribute("Cash", data.Cash)
-	notify(player, ("Sold %d card%s for %s"):format(count, count > 1 and "s" or "", Format.cash(total)), "cash")
-	PlayerService.SendState(player)
-end
-
 function actions.UnlockCase(player: Player)
 	Hub.Gallery.UnlockCase(player)
 	PlayerService.SendState(player)
 end
 
-function actions.Collect(player: Player, index: any)
+-- supports de sa base : ramasser / poser
+function actions.PickUp(player: Player, case: any)
+	if type(case) == "number" then
+		Hub.Gallery.PickUp(player, case)
+	end
+end
+
+function actions.Place(player: Player, case: any)
+	Hub.Gallery.Place(player, type(case) == "number" and case or nil)
+	PlayerService.SendState(player)
+end
+
+-- réserve
+function actions.TakeStorage(player: Player, index: any)
 	if type(index) == "number" then
-		Hub.Grading.Collect(player, index)
+		Hub.Gallery.TakeFromStorage(player, index)
 		PlayerService.SendState(player)
 	end
 end
 
-function actions.CollectAll(player: Player)
-	Hub.Grading.CollectAll(player)
-end
-
-function actions.StartRaw(player: Player, index: any)
+function actions.SellStorage(player: Player, index: any)
 	if type(index) == "number" then
-		Hub.Grading.StartRaw(player, index)
+		Hub.Gallery.SellStorage(player, index)
+		PlayerService.SendState(player)
 	end
 end
 
-function actions.SellRaw(player: Player, index: any)
-	if type(index) == "number" then
-		Hub.Grading.SellRaw(player, index)
+-- stand Grading Lab
+function actions.GradeHeld(player: Player)
+	Hub.Grading.GradeHeld(player)
+end
+
+-- stand Packs
+function actions.BuyPack(player: Player, key: any)
+	if type(key) == "string" and Config.Packs[key] then
+		Hub.Packs.Buy(player, key)
 	end
+end
+
+-- paliers de l'Index
+function actions.ClaimIndex(player: Player, i: any)
+	local data = DataService.Get(player)
+	local reward = type(i) == "number" and Config.IndexRewards[i]
+	if not data or not reward or data.IndexClaimed[tostring(i)] then
+		return
+	end
+	if indexCount(data) < reward.Count then
+		notify(player, ("Find %d different cards first"):format(reward.Count), "error")
+		return
+	end
+	data.IndexClaimed[tostring(i)] = true
+	if reward.Cash then
+		local amount = math.max(reward.Cash, math.floor(Hub.Gallery.Income(player) * 60 * (reward.CashMinutes or 0)))
+		data.Cash += amount
+		player:SetAttribute("Cash", data.Cash)
+		notify(player, "Index reward: +" .. Format.cash(amount), "cash")
+	end
+	if reward.CashBonus then
+		data.CashBonus = (data.CashBonus or 0) + reward.CashBonus
+		notify(player, ("Index reward: +%d%% cash forever!"):format(reward.CashBonus * 100), "reward")
+	end
+	if reward.Pack then
+		Hub.Packs.Open(player, reward.Pack)
+	end
+	PlayerService.SendState(player)
 end
 
 function actions.UpgradeTreadmill(player: Player)
@@ -343,8 +392,7 @@ function actions.Rebirth(player: Player)
 	if base then
 		Hub.Training.Render(base, player)
 	end
-	data.Raw = {}
-	data.Grading = {}
+	Hub.Zones.SetCarry(player, nil)
 	Hub.Gallery.ClearCards(player)
 	player:SetAttribute("Cash", 0)
 	player:SetAttribute("Speed", 0)
@@ -381,8 +429,8 @@ function actions.ClaimDaily(player: Player)
 		table.insert(got, "+" .. Format.cash(amount))
 	end
 	if reward.Rarity then
-		Hub.Grading.Deliver(player, Hub.Loot.RollCard(reward.Rarity), Hub.Loot.RollFinish())
-		table.insert(got, "a " .. reward.Rarity .. " card in your lab")
+		Hub.Gallery.Give(player, Hub.Loot.RollCard(reward.Rarity), Hub.Loot.RollFinish(), nil)
+		table.insert(got, "a " .. reward.Rarity .. " card in your base")
 	end
 	notify(player, ("Day %d: %s"):format(slot, table.concat(got, " and ")), "reward")
 	PlayerService.SendState(player)
@@ -445,8 +493,8 @@ local function handleSpeed(player: Player, product): boolean
 	return true
 end
 
-local function handleInstantGrade(player: Player): boolean
-	return Hub.Grading.FinishAll(player)
+local function handlePackRestock(player: Player): boolean
+	return Hub.Packs.RestockFor(player)
 end
 
 local function handleTreadmill(player: Player): boolean
@@ -470,7 +518,7 @@ local function handleStarter(player: Player): boolean
 	player:SetAttribute("Cash", data.Cash)
 	Hub.Training.AddSpeed(player, math.max(2000, math.floor(Hub.Training.BestRate(player) * 60 * 15)))
 	data.StarterBought = true
-	notify(player, "Starter Pack opened! Check your grading lab.", "reward")
+	notify(player, "Starter Pack opened! Your new card is in your base.", "reward")
 	PlayerService.SendState(player)
 	return true
 end
@@ -562,6 +610,12 @@ local function onCharacterAdded(player: Player, character: Model)
 		end)
 	end
 	Hub.Combat.OnSpawn(player)
+	-- la carte tenue en main revient dans les mains après une réapparition
+	task.delay(0.5, function()
+		if character.Parent then
+			Hub.Zones.Reattach(player)
+		end
+	end)
 	-- revenu après un retour anti-AFK : on le remet sur son tapis
 	if player:GetAttribute("AfkReturn") then
 		player:SetAttribute("AfkReturn", nil)
@@ -609,6 +663,12 @@ local function onPlayerAdded(player: Player)
 		player:Kick("This server is full, please join another one.")
 		return
 	end
+	-- carte qu'il avait en main en partant
+	local saved = DataService.Get(player)
+	if saved and saved.Held then
+		local h = saved.Held
+		Hub.Zones.SetCarry(player, { Id = h.Id, F = h.F, G = h.G, Zone = 0 })
+	end
 
 	-- amis présents dans le serveur (Friend Boost)
 	friends[player] = friends[player] or {}
@@ -634,6 +694,7 @@ end
 
 local function onPlayerRemoving(player: Player)
 	afkTeleporting[player] = nil
+	-- une carte de sa base tenue en main reste sauvegardée (data.Held)
 	Hub.Gallery.Release(player)
 	Hub.Training.Stop(player)
 	friends[player] = nil
@@ -651,7 +712,7 @@ function PlayerService.Start()
 	MonetizationService.RegisterHandler("Treadmill", handleTreadmill)
 	MonetizationService.RegisterHandler("Starter", handleStarter)
 	MonetizationService.RegisterHandler("RebirthSkip", handleRebirthSkip)
-	MonetizationService.RegisterHandler("InstantGrade", handleInstantGrade)
+	MonetizationService.RegisterHandler("PackRestock", handlePackRestock)
 	MonetizationService.RegisterHandler("ServerLuck", handleServerLuck)
 	MonetizationService.RegisterHandler("Freeze", handleFreeze)
 	MonetizationService.RegisterHandler("Pack", handlePack)

@@ -1,10 +1,12 @@
 --[[
 	Les boutiques de la route.
-	- Chaque boutique a des présentoirs avec des cartes à voler (maintenir E).
-	- Le gardien de la boutique poursuit le voleur jusqu'au portail de la zone.
-	- Attrapé ou frappé par un joueur : la carte tombe au sol, n'importe qui peut la ramasser.
-	- De retour dans le hub (zone sûre), la carte part au Grading Lab.
-	- Un joueur sans la vitesse minimum ne peut pas entrer dans une zone.
+	- Chaque boutique a des présentoirs avec de grandes cartes 3D à voler (maintenir E).
+	- On porte la carte dans ses mains. Le gardien poursuit le voleur jusqu'au portail.
+	- Attrapé par le gardien : la carte disparaît et une nouvelle apparaît ailleurs.
+	- Frappé par un joueur : la carte tombe au sol, n'importe qui peut la ramasser.
+	- De retour dans la zone sûre, la carte se pose toute seule sur un support libre de la base.
+	- Toutes les 10 minutes, la map se rafraîchit : compte à rebours de 5 s, tous les
+	  joueurs dans les boutiques retournent à leur base et tous les présentoirs changent.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -20,13 +22,13 @@ local DataService = require(script.Parent.DataService)
 local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
 local GuardModel = require(script.Parent.Parent.World.GuardModel)
 local Showcase = require(script.Parent.Parent.World.Showcase)
-local Entity = require(ReplicatedStorage.Shared.Entity)
-local Nameplate = require(ReplicatedStorage.Shared.Nameplate)
+local CardDisplay = require(script.Parent.Parent.World.CardDisplay)
 local Hub = require(script.Parent.Parent.Hub)
 
 local ZoneService = {}
 
-type Carry = { Id: string, F: string, Zone: number, visual: BasePart? }
+-- Zone = boutique d'où vient la carte (0 = carte ramassée dans sa propre base)
+type Carry = { Id: string, F: string, G: number?, Zone: number, visual: BasePart? }
 
 local zones = {}
 local carrying: { [Player]: Carry } = {}
@@ -36,6 +38,10 @@ local gateWarning: { [Player]: number } = {}
 
 function ZoneService.IsCarrying(player: Player): boolean
 	return carrying[player] ~= nil
+end
+
+function ZoneService.GetCarry(player: Player): Carry?
+	return carrying[player]
 end
 
 --------------------------------------------------------------------
@@ -54,27 +60,30 @@ local function clearCarryVisual(player: Player, c: Carry)
 end
 
 local function attachCarryVisual(player: Player, c: Carry)
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	local head = player.Character and player.Character:FindFirstChild("Head") :: BasePart?
-	if not head then
+	if not root or not head then
 		return
 	end
-	local part = CardArt.part(c.Id, c.F, nil, true)
+	-- la carte est tenue devant soi, à hauteur de poitrine, un peu inclinée
+	local part = CardArt.part(c.Id, c.F, c.G, true)
 	part.Anchored = false
 	part.Massless = true
 	part.CanCollide = false
 	part.CanQuery = false
 	part.CanTouch = false
-	part.Size = Vector3.new(2.4, 3.36, 0.15)
-	part.CFrame = head.CFrame * CFrame.new(0, 3.2, 0)
+	part.Size = Vector3.new(2.3, 3.22, 0.12)
+	part.CFrame = root.CFrame * CFrame.new(0, 0.35, -1.55) * CFrame.Angles(math.rad(-18), math.pi, 0)
 	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = head
+	weld.Part0 = root
 	weld.Part1 = part
 	weld.Parent = part
+	CardDisplay.decorate(part, c.Id, c.F, 0.6)
 	part.Parent = player.Character
 	c.visual = part
 
 	local rarity = Cards.Rarities[Cards.ById[c.Id].Rarity]
-	local label, gui = MapBuilder.billboard(head, UDim2.fromOffset(200, 34), Vector3.new(0, 6, 0), Cards.DisplayName(c.Id, c.F), rarity.Color, 150)
+	local label, gui = MapBuilder.billboard(head, UDim2.fromOffset(220, 34), Vector3.new(0, 2.6, 0), Cards.DisplayName(c.Id, c.F), rarity.Name == "Secret" and Color3.new(1, 1, 1) or rarity.Color, 150)
 	gui.Name = "CarryTag"
 	gui.AlwaysOnTop = true
 	label.Name = "CarryLabel"
@@ -87,10 +96,30 @@ local function setCarry(player: Player, c: Carry?)
 	end
 	carrying[player] = c
 	player:SetAttribute("Carrying", c and c.Id or nil)
+	player:SetAttribute("CarryFromBase", c ~= nil and c.Zone == 0 or nil)
+	-- une carte de sa base tenue en main est sauvegardée (on ne la perd pas en partant)
+	local data = DataService.Get(player)
+	if data then
+		data.Held = (c and c.Zone == 0) and { Id = c.Id, F = c.F, G = c.G } or nil
+	end
 	if c then
 		attachCarryVisual(player, c)
 	end
 	Hub.Combat.UpdateSpeed(player)
+	Hub.Players.SendState(player)
+end
+
+function ZoneService.SetCarry(player: Player, c: Carry?)
+	setCarry(player, c)
+end
+
+-- après une réapparition : on remet la carte dans les mains
+function ZoneService.Reattach(player: Player)
+	local c = carrying[player]
+	if c then
+		clearCarryVisual(player, c)
+		attachCarryVisual(player, c)
+	end
 end
 
 --------------------------------------------------------------------
@@ -121,8 +150,8 @@ local function spawnDrop(id: string, finish: string, zoneIndex: number, position
 		end
 		taken = true
 		part:Destroy()
-		setCarry(player, { Id = id, F = finish, Zone = zoneIndex })
-		Remotes.Notify:FireClient(player, "Got it! Run back to the hub!", "info")
+		setCarry(player, { Id = id, F = finish, Zone = math.max(zoneIndex, 1) })
+		Remotes.Notify:FireClient(player, "Got it! Run back to your base!", "info")
 		-- le gardien de la zone se réveille si on est encore chez lui
 		local g = guardians[zoneIndex]
 		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -158,36 +187,33 @@ end
 --------------------------------------------------------------------
 -- Présentoirs
 --------------------------------------------------------------------
+local function clearPedestal(pedestal)
+	pedestal.card = nil
+	Showcase.style(pedestal.Show, nil)
+	if pedestal.part then
+		pedestal.part:Destroy()
+		pedestal.part = nil
+	end
+end
+
 local function restock(zoneIndex: number, pedestal)
 	local zone = Config.Zones[zoneIndex]
+	clearPedestal(pedestal)
 	local rarity = Hub.Loot.RollRarity(zone.Rarity, Hub.Events.Luck())
 	local id = Hub.Loot.RollCard(rarity)
 	local finish = Hub.Loot.RollFinish()
 	pedestal.card = { Id = id, F = finish }
 
 	Showcase.style(pedestal.Show, Cards.ById[id].Rarity)
-	-- la créature de la carte sur le présentoir, la carte qui flotte au-dessus
-	local display = Instance.new("Model")
-	display.Name = "Display"
-	local entity = Entity.build(id, finish)
-	local facing = pedestal.CardCFrame - pedestal.CardCFrame.Position
-	Entity.place(entity, CFrame.new(pedestal.Show.Top.Position + Vector3.new(0, 0.2, 0)) * facing, 0.85)
-	entity.Parent = display
-	local card = CardArt.part(id, finish, nil, false)
-	card.Size = Vector3.new(2.2, 3.08, 0.12)
-	card.CFrame = CFrame.new(pedestal.Show.Top.Position + Vector3.new(0, 8.6, 0)) * facing
-	card.Parent = display
-	CollectionService:AddTag(card, "DisplayCard")
-	display.Parent = zones[zoneIndex].Folder
+	-- une grande carte 3D qui flotte au-dessus du présentoir, avec son aura
+	local display, card = CardDisplay.build(id, finish, nil, pedestal.CardCFrame, 1, zones[zoneIndex].Folder)
 	pedestal.part = display
-
-	local r = Cards.Rarities[Cards.ById[id].Rarity]
-	Nameplate.attach(entity.PrimaryPart, id, finish, nil, Vector3.new(0, 12.5, 0))
-	local prompt = MapBuilder.prompt(entity.PrimaryPart, "Steal", Cards.DisplayName(id, finish), Config.StealHoldTime, 11)
+	local prompt = MapBuilder.prompt(card, "Steal", Cards.DisplayName(id, finish), Config.StealHoldTime, 12)
 	prompt.Triggered:Connect(function(player)
 		ZoneService.TrySteal(player, zoneIndex, pedestal)
 	end)
 
+	local r = Cards.Rarities[Cards.ById[id].Rarity]
 	if r.Order >= Cards.Rarities.Legendary.Order then
 		Remotes.Announce:FireAllClients(
 			r.Name:upper() .. " IN STOCK!",
@@ -222,12 +248,7 @@ function ZoneService.TrySteal(player: Player, zoneIndex: number, pedestal)
 		return
 	end
 	local card = pedestal.card
-	pedestal.card = nil
-	Showcase.style(pedestal.Show, nil)
-	if pedestal.part then
-		pedestal.part:Destroy()
-		pedestal.part = nil
-	end
+	clearPedestal(pedestal)
 	setCarry(player, { Id = card.Id, F = card.F, Zone = zoneIndex })
 	scheduleRestock(zoneIndex, pedestal)
 	Remotes.Notify:FireClient(player, "RUN! " .. Config.Zones[zoneIndex].Guardian .. " saw you!", "error")
@@ -249,6 +270,19 @@ function ZoneService.RestockAll()
 	end
 end
 
+-- Une carte reprise par le gardien réapparaît sur un autre présentoir vide de la boutique
+local function respawnElsewhere(zoneIndex: number)
+	local empty = {}
+	for _, pedestal in zones[zoneIndex].Pedestals do
+		if not pedestal.card then
+			table.insert(empty, pedestal)
+		end
+	end
+	if #empty > 0 then
+		restock(zoneIndex, empty[Hub.Loot.Random():NextInteger(1, #empty)])
+	end
+end
+
 --------------------------------------------------------------------
 -- Gardiens
 --------------------------------------------------------------------
@@ -263,7 +297,7 @@ local function makeGuardian(zoneIndex: number)
 	local z = zones[zoneIndex]
 	local zone = Config.Zones[zoneIndex]
 	local home = z.GuardianHome * CFrame.Angles(0, math.pi, 0) -- regarde vers l'entrée
-	local body = GuardModel.new(zone.Guardian, zone.Main:Lerp(Color3.fromRGB(40, 60, 120), 0.5), zone.Accent, z.Folder)
+	local body = GuardModel.new(zone.Guardian, zone.Main:Lerp(Color3.fromRGB(40, 60, 120), 0.5), zone.Accent, z.Folder, { Shades = zoneIndex >= 5 })
 	local nameLabel, tag = MapBuilder.billboard(body.Head, UDim2.fromOffset(240, 36), Vector3.new(0, 3.4, 0), zone.Guardian:upper(), zone.Accent, 120)
 	tag.Name = "NameTag"
 
@@ -380,9 +414,10 @@ local function makeGuardian(zoneIndex: number)
 					local away = (root.Position - g.position) * Vector3.new(1, 0, 1)
 					away = away.Magnitude > 0 and away.Unit or Vector3.new(0, 0, -1)
 					Remotes.Knockback:FireClient(target, away * 70 + Vector3.new(0, 45, 0))
-					-- attrapé par le gardien : la carte retourne à la boutique (elle disparaît)
+					-- attrapé par le gardien : la carte disparaît, une nouvelle apparaît ailleurs
 					local lostCard = carrying[target]
 					setCarry(target, nil)
+					task.delay(1.5, respawnElsewhere, zoneIndex)
 					Remotes.Notify:FireClient(target, zone.Guardian .. " took the card back!", "error")
 					if lostCard then
 						Remotes.Announce:FireClient(target, "CAUGHT!", Cards.DisplayName(lostCard.Id, lostCard.F) .. " went back to the shop", "steal")
@@ -432,14 +467,60 @@ local function makeGuardian(zoneIndex: number)
 		body:Place(CFrame.lookAt(at, at + facing), g.phase, moving, frozen)
 	end
 
+	function g.reset()
+		g.state = "idle"
+		g.target = nil
+		g.position = home.Position
+		g.passedDoor = false
+		g.dirty = true
+		setTag(zone.Guardian:upper(), zone.Accent)
+	end
+
 	guardians[zoneIndex] = g
+end
+
+--------------------------------------------------------------------
+-- Refresh de la map
+--------------------------------------------------------------------
+local refreshLabels: { TextLabel } = {}
+
+function ZoneService.RefreshMap()
+	-- tous ceux qui sont dans les boutiques retournent dans leur base
+	for _, player in Players:GetPlayers() do
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if root and not MapBuilder.InHub(root.Position) then
+			local c = carrying[player]
+			if c and c.Zone > 0 then
+				setCarry(player, nil)
+			end
+			local base = Hub.Gallery.Get(player)
+			if base then
+				character:PivotTo(base.Spawn)
+			end
+			Remotes.Notify:FireClient(player, "The shops were refreshed!", "info")
+		end
+	end
+	for _, d in dropsFolder:GetChildren() do
+		d:Destroy()
+	end
+	for _, g in guardians do
+		g.reset()
+	end
+	-- nouvelles cartes partout
+	for i, z in zones do
+		for _, pedestal in z.Pedestals do
+			restock(i, pedestal)
+		end
+	end
 end
 
 --------------------------------------------------------------------
 -- Démarrage
 --------------------------------------------------------------------
-function ZoneService.Start(built)
+function ZoneService.Start(built, labels: { TextLabel }?)
 	zones = built
+	refreshLabels = labels or {}
 	dropsFolder = Instance.new("Folder")
 	dropsFolder.Name = "DroppedCards"
 	dropsFolder.Parent = workspace
@@ -457,6 +538,31 @@ function ZoneService.Start(built)
 		end
 	end)
 
+	-- minuteur du refresh, affiché sur le grand écran de l'arche et dans l'interface
+	task.spawn(function()
+		local nextAt = workspace:GetServerTimeNow() + Config.MapRefreshEvery
+		workspace:SetAttribute("MapRefreshAt", nextAt)
+		while true do
+			task.wait(0.25)
+			local left = nextAt - workspace:GetServerTimeNow()
+			if left <= 0 then
+				ZoneService.RefreshMap()
+				nextAt += Config.MapRefreshEvery
+				workspace:SetAttribute("MapRefreshAt", nextAt)
+				left = nextAt - workspace:GetServerTimeNow()
+			end
+			local text
+			if left <= Config.MapRefreshCountdown then
+				text = ("REFRESH IN %d"):format(math.ceil(left))
+			else
+				text = ("SHOPS REFRESH IN %d:%02d"):format(math.floor(left / 60), math.floor(left % 60))
+			end
+			for _, l in refreshLabels do
+				l.Text = text
+			end
+		end
+	end)
+
 	-- livraison au hub, morts, portails de vitesse
 	task.spawn(function()
 		while true do
@@ -470,11 +576,14 @@ function ZoneService.Start(built)
 					local c = carrying[player]
 					if c then
 						if humanoid.Health <= 0 then
-							ZoneService.Drop(player, "You dropped the card!")
-						elseif MapBuilder.InHub(root.Position) then
+							if c.Zone > 0 then
+								ZoneService.Drop(player, "You dropped the card!")
+							end
+						elseif c.Zone > 0 and MapBuilder.InHub(root.Position) then
+							-- carte volée ramenée : elle se pose sur un support de la base
 							setCarry(player, nil)
 							data.Steals += 1
-							Hub.Grading.Deliver(player, c.Id, c.F)
+							Hub.Gallery.Give(player, c.Id, c.F, c.G)
 							Hub.Players.OnSteal(player, c.Id, c.F)
 						end
 					end

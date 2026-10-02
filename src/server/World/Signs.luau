@@ -11,6 +11,8 @@ Signs.Palettes = {
 	Green = { Color3.fromRGB(185, 255, 95), Color3.fromRGB(90, 220, 60), Color3.fromRGB(35, 165, 55), Color3.fromRGB(15, 70, 20) },
 	Gold = { Color3.fromRGB(255, 250, 170), Color3.fromRGB(255, 205, 50), Color3.fromRGB(235, 140, 20), Color3.fromRGB(100, 55, 0) },
 	Blue = { Color3.fromRGB(120, 210, 255), Color3.fromRGB(55, 145, 255), Color3.fromRGB(40, 95, 225), Color3.fromRGB(15, 35, 100) },
+	Red = { Color3.fromRGB(255, 120, 130), Color3.fromRGB(245, 50, 75), Color3.fromRGB(200, 20, 60), Color3.fromRGB(90, 10, 25) },
+	Purple = { Color3.fromRGB(240, 130, 255), Color3.fromRGB(175, 85, 255), Color3.fromRGB(115, 50, 225), Color3.fromRGB(55, 15, 105) },
 	Dark = { Color3.fromRGB(70, 74, 92), Color3.fromRGB(42, 45, 60), Color3.fromRGB(28, 30, 40), Color3.fromRGB(8, 8, 12) },
 }
 

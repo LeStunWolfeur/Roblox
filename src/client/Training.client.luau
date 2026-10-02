@@ -99,7 +99,7 @@ local function refreshUI()
 		end
 	end
 	if target and rate > 0 then
-		nextLabel.Text = ("%s in %s (AFK is fine!)"):format(target.Name, Format.time((target.Speed - speed) / rate))
+		nextLabel.Text = ("%s speed in %s"):format(target.Name, Format.time((target.Speed - speed) / rate))
 	else
 		nextLabel.Text = "Fast enough for every shop!"
 	end

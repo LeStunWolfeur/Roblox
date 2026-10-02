@@ -155,18 +155,84 @@ Config.RarityGuardBonus = { Epic = 0.04, Legendary = 0.08, Mythic = 0.12, Secret
 Config.DropLifetime = 25 -- une carte tombée reste au sol tant de secondes
 
 --------------------------------------------------------------------
--- GRADATION ET GALERIE
+-- SUPPORTS DE LA BASE ET ÉTAGES
+-- Une carte volée se pose toute seule sur un support libre de ta base.
+-- 8 supports par étage. Au début, 3 sont débloqués, les autres s'achètent
+-- (chacun plus cher que le précédent). Un rebirth ajoute un étage.
 --------------------------------------------------------------------
-Config.GradingSlots = 2
-Config.GradingSlotsPerRebirth = 1
-Config.MaxRawCards = 12 -- cartes en attente de gradation
-
-Config.GalleryStartCases = 6
-Config.GalleryMaxCases = 16
-function Config.CaseCost(owned: number): number
-	-- prix de la vitrine suivante
-	return math.floor(250 * 6 ^ (owned - Config.GalleryStartCases))
+Config.CasesPerFloor = 8
+Config.FloorRebirths = { 0, 1, 3 } -- rebirths nécessaires pour l'étage 1, 2, 3
+Config.GalleryStartCases = 3
+Config.GalleryMaxCases = 24
+function Config.FloorsFor(rebirths: number): number
+	local n = 0
+	for _, need in Config.FloorRebirths do
+		if rebirths >= need then
+			n += 1
+		end
+	end
+	return n
 end
+function Config.CaseCost(owned: number): number
+	-- prix du support suivant (owned = supports déjà débloqués)
+	return math.floor(150 * 3.2 ^ (owned - Config.GalleryStartCases))
+end
+Config.StorageMax = 30 -- cartes en réserve quand tous les supports sont pleins
+
+--------------------------------------------------------------------
+-- GRADATION (stand GRADING LAB au bout de la rue)
+-- On paie, la note (1 à 10) tombe tout de suite. Le prix = 60 secondes
+-- du revenu de la carte (moitié prix avec le pass). On peut regrader.
+--------------------------------------------------------------------
+Config.GradeSeconds = 60
+Config.GradeMinimum = 25
+function Config.GradeCost(income: number, cheap: boolean?): number
+	local cost = math.max(Config.GradeMinimum, math.floor(income * Config.GradeSeconds))
+	return cheap and math.floor(cost / 2) or cost
+end
+
+--------------------------------------------------------------------
+-- PACKS (stand PACKS au bout de la rue)
+-- Le stock change toutes les 5 minutes, le même pour tous les serveurs.
+-- Chaque pack ouvert sans Legendary ou mieux donne +3% de chance pour les
+-- suivants (jusqu'à +45%). Les packs Gold et plus donnent aussi +20% de cash
+-- pendant 10 minutes. BonusChance = chance d'avoir une 2e carte.
+--------------------------------------------------------------------
+Config.PackRestockTime = 300
+Config.PackLuckStep = 0.03
+Config.PackLuckMax = 0.45
+Config.PackCashBoost = 0.2
+Config.PackCashBoostTime = 600
+Config.PackOrder = { "Basic", "Silver", "Gold", "Diamond", "Cosmic" }
+Config.Packs = {
+	Basic = { Name = "Basic Pack", Price = 500, Odds = { Common = 70, Uncommon = 25, Rare = 5 }, Stock = { 3, 6 }, InStock = 1, BonusChance = 0.1, Color = Color3.fromRGB(170, 175, 190) },
+	Silver = { Name = "Silver Pack", Price = 15000, Odds = { Uncommon = 50, Rare = 38, Epic = 11, Legendary = 1 }, Stock = { 2, 4 }, InStock = 0.85, BonusChance = 0.15, Color = Color3.fromRGB(200, 215, 235) },
+	Gold = { Name = "Gold Pack", Price = 400000, Odds = { Rare = 45, Epic = 40, Legendary = 13, Mythic = 2 }, Stock = { 1, 3 }, InStock = 0.6, BonusChance = 0.2, CashBoost = true, Color = Color3.fromRGB(255, 200, 50) },
+	Diamond = { Name = "Diamond Pack", Price = 12000000, Odds = { Epic = 45, Legendary = 42, Mythic = 12, Secret = 1 }, Stock = { 1, 2 }, InStock = 0.35, BonusChance = 0.25, CashBoost = true, Color = Color3.fromRGB(110, 230, 255) },
+	Cosmic = { Name = "Cosmic Pack", Price = 500000000, Odds = { Legendary = 55, Mythic = 38, Secret = 7 }, Stock = { 1, 1 }, InStock = 0.15, BonusChance = 0.35, CashBoost = true, Color = Color3.fromRGB(200, 90, 255) },
+}
+
+--------------------------------------------------------------------
+-- REFRESH DE LA MAP : toutes les 10 minutes, compte à rebours de 5 s,
+-- tous ceux qui sont dans les boutiques retournent dans leur base et
+-- tous les présentoirs changent.
+--------------------------------------------------------------------
+Config.MapRefreshEvery = 600
+Config.MapRefreshCountdown = 5
+
+--------------------------------------------------------------------
+-- INDEX : récompenses par palier de cartes découvertes
+--------------------------------------------------------------------
+Config.IndexRewards = {
+	{ Count = 5, Name = "$ Bag", Cash = 5000, CashMinutes = 5 },
+	{ Count = 10, Name = "Silver Pack", Pack = "Silver" },
+	{ Count = 15, Name = "+5% Cash forever", CashBonus = 0.05 },
+	{ Count = 20, Name = "Gold Pack", Pack = "Gold" },
+	{ Count = 25, Name = "+10% Cash forever", CashBonus = 0.1 },
+	{ Count = 30, Name = "Diamond Pack", Pack = "Diamond" },
+	{ Count = 40, Name = "+25% Cash forever", CashBonus = 0.25 },
+	{ Count = 46, Name = "Cosmic Pack", Pack = "Cosmic" },
+}
 
 --------------------------------------------------------------------
 -- REBIRTH
@@ -174,7 +240,7 @@ end
 Config.RebirthCashBonus = 0.5 -- +50% de cash par rebirth
 Config.RebirthSpeedBonus = 0.25 -- +25% de Speed gagnée par rebirth
 function Config.RebirthCost(rebirths: number): number
-	return math.floor(2e6 * 12 ^ rebirths)
+	return math.floor(300000 * 6 ^ rebirths)
 end
 
 Config.IndexBonusPerCard = 0.01 -- +1% de cash par carte différente découverte
@@ -185,7 +251,7 @@ Config.FriendBoostMax = 0.5
 
 --------------------------------------------------------------------
 -- CODES (onglet Codes du shop). Ajoute les tiens ici.
--- Reward : Cash, Speed ou Card (= rareté d'une carte brute envoyée au labo)
+-- Reward : Cash, Speed ou Card (= rareté d'une carte posée dans ta base)
 --------------------------------------------------------------------
 Config.Codes = {
 	RELEASE = { Cash = 2500, Speed = 500 },
@@ -205,13 +271,13 @@ Config.SlapRange = 9
 Config.EventEvery = { 480, 720 }
 Config.EventDuration = 180
 Config.Events = {
-	HoloStorm = { Name = "HOLO STORM", Description = "Holo cards everywhere", FinishBoost = { Holo = 4, Rainbow = 2 } },
-	GoldenHour = { Name = "GOLDEN HOUR", Description = "Gold finish x4", FinishBoost = { Gold = 4 } },
-	RestockRush = { Name = "RESTOCK RUSH", Description = "Shops restock twice as fast", RestockSpeed = 2 },
-	LuckyMoon = { Name = "LUCKY MOON", Description = "Rare cards x3", Luck = 3 },
-	SleepyGuards = { Name = "SLEEPY GUARDS", Description = "Guardians are 25% slower", GuardianSlow = 0.75 },
-	BloodMoon = { Name = "BLOOD MOON", Description = "Haunted cards rising", FinishBoost = { Haunted = 5 }, Season = "Halloween" },
-	Blizzard = { Name = "BLIZZARD", Description = "Frozen cards rising", FinishBoost = { Frozen = 5 }, Season = "Winter" },
+	HoloStorm = { Name = "Holo Storm", Description = "Holo and Rainbow mutations everywhere", FinishBoost = { Holo = 4, Rainbow = 2 }, Icon = "cards", Palette = "Cyan" },
+	GoldenHour = { Name = "Golden Hour", Description = "Gold mutation x4 in every shop", FinishBoost = { Gold = 4 }, Icon = "crown", Palette = "Gold" },
+	RestockRush = { Name = "Restock Rush", Description = "Shops restock twice as fast", RestockSpeed = 2, Icon = "crate", Palette = "Orange" },
+	LuckyMoon = { Name = "Lucky Moon", Description = "Rare cards x3 in every shop", Luck = 3, Icon = "clover", Palette = "Green" },
+	SleepyGuards = { Name = "Sleepy Guards", Description = "Guards run 25% slower", GuardianSlow = 0.75, Icon = "clock", Palette = "Blue" },
+	BloodMoon = { Name = "Blood Moon", Description = "Haunted mutation rising", FinishBoost = { Haunted = 5 }, Season = "Halloween", Icon = "gift", Palette = "Red" },
+	Blizzard = { Name = "Blizzard", Description = "Frozen mutation rising", FinishBoost = { Frozen = 5 }, Season = "Winter", Icon = "snowflake", Palette = "Cyan" },
 }
 Config.ServerLuckDuration = 900
 Config.ServerLuckMultiplier = 2
@@ -239,13 +305,13 @@ Config.DailyStreakBreak = 48 * 3600
 Config.GamePasses = {
 	VIP = { Id = 0, Name = "VIP", Description = "x1.5 cash, VIP tag, golden name.", Color = Color3.fromRGB(255, 200, 40) },
 	DoubleCash = { Id = 0, Name = "2x Cash", Description = "Double the cash from your gallery. Forever.", Color = Color3.fromRGB(80, 230, 140) },
-	FastGrading = { Id = 0, Name = "2x Grading", Description = "Cards get graded twice as fast.", Color = Color3.fromRGB(70, 160, 255) },
+	CheapGrading = { Id = 0, Name = "Half-Price Grading", Description = "Grading costs half price. Forever.", Color = Color3.fromRGB(70, 160, 255) },
 	DoubleSpeed = { Id = 0, Name = "2x Training", Description = "Double Speed from every treadmill.", Color = Color3.fromRGB(255, 130, 60) },
 	AutoCollect = { Id = 0, Name = "Auto Collect", Description = "Gallery cash goes straight to your wallet.", Color = Color3.fromRGB(0, 220, 220) },
-	MoreGrading = { Id = 0, Name = "+2 Grading Slots", Description = "Grade two more cards at the same time.", Color = Color3.fromRGB(190, 120, 255) },
-	Lucky = { Id = 0, Name = "x2 Luck", Description = "Better grades on every card: best of two rolls.", Color = Color3.fromRGB(255, 90, 150) },
+	ExtraCases = { Id = 0, Name = "+2 Display Cases", Description = "Two more cases in your base, free.", Color = Color3.fromRGB(190, 120, 255) },
+	Lucky = { Id = 0, Name = "x2 Luck", Description = "Best of two rolls on every grade and luckier packs.", Color = Color3.fromRGB(255, 90, 150) },
 }
-Config.GamePassOrder = { "VIP", "DoubleCash", "DoubleSpeed", "FastGrading", "MoreGrading", "AutoCollect", "Lucky" }
+Config.GamePassOrder = { "VIP", "DoubleCash", "DoubleSpeed", "CheapGrading", "ExtraCases", "AutoCollect", "Lucky" }
 Config.VipCashMultiplier = 1.5
 
 --------------------------------------------------------------------
@@ -258,16 +324,37 @@ Config.Products = {
 	RebirthSkip = { Id = 0, Kind = "RebirthSkip", Name = "Skip Rebirth", Description = "+1 rebirth and keep everything." },
 	TreadmillUpgrade = { Id = 0, Kind = "Treadmill", Name = "Treadmill +1 Level", Description = "Upgrade your treadmill one level right now." },
 	FreezeGuards = { Id = 0, Kind = "Freeze", Name = "Freeze Guards", Description = "Every guardian is frozen for 30 seconds. Go!" },
-	InstantGrade = { Id = 0, Kind = "InstantGrade", Name = "Grade All Now", Description = "Finish every card in the lab instantly." },
+	PackRestock = { Id = 0, Kind = "PackRestock", Name = "Restock Packs", Description = "Refill the pack stand for you, right now." },
 	ServerLuck = { Id = 0, Kind = "ServerLuck", Name = "Server Luck x2", Description = "Rare cards x2 for EVERYONE in the server for 15 min." },
-	MysteryPack = { Id = 0, Kind = "Pack", Name = "Mystery Pack", Description = "A raw card sent to your lab. Epic or better." },
+	MysteryPack = { Id = 0, Kind = "Pack", Name = "Mystery Pack", Description = "A card placed in your base. Epic or better." },
 	CashSmall = { Id = 0, Kind = "Cash", Minutes = 10, Minimum = 2000, Name = "Cash Bag", Description = "10 minutes of your income." },
 	CashBig = { Id = 0, Kind = "Cash", Minutes = 60, Minimum = 15000, Name = "Cash Vault", Description = "1 hour of your income." },
 	CashHuge = { Id = 0, Kind = "Cash", Minutes = 360, Minimum = 100000, Name = "Cash Mountain", Description = "6 hours of your income." },
 }
-Config.ProductOrder = { "FreezeGuards", "TreadmillUpgrade", "SpeedSmall", "SpeedBig", "InstantGrade", "ServerLuck", "MysteryPack", "CashSmall", "CashBig", "CashHuge" }
+Config.ProductOrder = { "FreezeGuards", "TreadmillUpgrade", "SpeedSmall", "SpeedBig", "PackRestock", "ServerLuck", "MysteryPack", "CashSmall", "CashBig", "CashHuge" }
 Config.StarterWeights = { Legendary = 85, Mythic = 14, Secret = 1 }
 Config.PackWeights = { Epic = 70, Legendary = 25, Mythic = 4.6, Secret = 0.4 }
+
+--------------------------------------------------------------------
+-- SONS ET MUSIQUE
+-- Les valeurs par défaut sont des sons fournis avec Roblox (rbxasset://).
+-- Pour de meilleurs sons : Creator Store > Audio, copie l'ID et mets
+-- "rbxassetid://ID" à la place. Music : liste de musiques jouées en boucle.
+--------------------------------------------------------------------
+Config.Sounds = {
+	Click = "rbxasset://sounds/clickfast.wav",
+	Cash = "rbxasset://sounds/electronicpingshort.wav",
+	Steal = "rbxasset://sounds/swoosh.wav",
+	Caught = "rbxasset://sounds/hit.wav",
+	Upgrade = "rbxasset://sounds/electronicpingshort.wav",
+	Pack = "rbxasset://sounds/swoosh.wav",
+	Reveal = "rbxasset://sounds/snap.wav",
+	Error = "rbxasset://sounds/clickfast.wav",
+	Event = "rbxasset://sounds/electronicpingshort.wav",
+}
+Config.SoundVolume = 0.5
+Config.Music = {} -- ex. { "rbxassetid://1234567890" }
+Config.MusicVolume = 0.25
 
 --------------------------------------------------------------------
 -- BADGES (optionnel, 0 = désactivé)

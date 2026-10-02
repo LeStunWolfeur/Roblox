@@ -13,6 +13,8 @@ local NAMES = {
 	"EventState", -- serveur -> tous : event en cours, saison, boost de chance
 	"Action", -- client -> serveur : actions de l'interface
 	"Admin", -- client -> serveur : commandes du panneau admin
+	"PackOpened", -- serveur -> client : cartes sorties d'un pack (animation d'ouverture)
+	"CashFx", -- serveur -> client : effet de pièces quand on ramasse son argent
 }
 
 local Remotes = {}

@@ -26,10 +26,15 @@ local function defaultData()
 		Cash = Config.StartCash,
 		Speed = 0,
 		Treadmill = 1, -- niveau du tapis de course de la base
-		Raw = {}, -- cartes volées pas encore gradées : { Id, F }
-		Grading = {}, -- cartes au labo : { Id, F, Ends = os.time() de fin }
-		Cards = {}, -- cartes gradées exposées : { S = vitrine, Id, F, G }
-		Cases = Config.GalleryStartCases, -- vitrines débloquées
+		Cards = {}, -- cartes posées sur les supports : { S = support, Id, F, G (note ou nil) }
+		Storage = {}, -- réserve quand tous les supports sont pleins : { Id, F, G }
+		Held = nil, -- carte dans les mains (sauvegardée pour ne pas la perdre)
+		Cases = Config.GalleryStartCases, -- supports débloqués
+		PackLuck = 0, -- bonus de chance des packs (monte à chaque pack sans Legendary+)
+		PackCycle = 0, -- numéro du stock de packs en cours
+		PackBought = {}, -- packs achetés dans le stock en cours
+		IndexClaimed = {}, -- paliers d'Index déjà récupérés
+		CashBonus = 0, -- bonus de cash permanent (récompenses d'Index)
 		Rebirths = 0,
 		Index = {}, -- [idCarte] = true pour chaque carte déjà possédée
 		BestZone = 1,
@@ -73,6 +78,20 @@ function DataService.Load(player: Player)
 			for k, v in saved do
 				data[k] = v
 			end
+			-- anciennes sauvegardes (avant les supports) : on récupère les cartes du labo
+			if type(saved.Raw) == "table" then
+				for _, c in saved.Raw do
+					table.insert(data.Storage, { Id = c.Id, F = c.F })
+				end
+			end
+			if type(saved.Grading) == "table" then
+				for _, c in saved.Grading do
+					table.insert(data.Storage, { Id = c.Id, F = c.F })
+				end
+			end
+			data.Raw = nil
+			data.Grading = nil
+			data.Treadmill = math.clamp(data.Treadmill or 1, 1, Config.TreadmillMaxLevel)
 		end
 	end
 

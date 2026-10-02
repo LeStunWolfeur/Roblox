@@ -9,6 +9,8 @@
 
 local TweenService = game:GetService("TweenService")
 
+local Sounds = require(script.Parent.Sounds)
+
 local Kit = {}
 
 local function rgb(r, g, b)
@@ -319,6 +321,9 @@ function Kit.button(props: { [string]: any }, onClick: (() -> ())?): (Frame, Tex
 	end)
 	hit.MouseButton1Up:Connect(function()
 		TweenService:Create(scale, TweenInfo.new(0.2, Enum.EasingStyle.Back), { Scale = 1 }):Play()
+	end)
+	hit.Activated:Connect(function()
+		Sounds.play("Click")
 	end)
 	if onClick then
 		hit.Activated:Connect(onClick)

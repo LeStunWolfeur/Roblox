@@ -1,26 +1,36 @@
--- Galeries des joueurs : vitrines, cartes exposées, cash produit, collecte, déblocage de vitrines
+--[[
+	Bases des joueurs : supports (vitrines), cartes exposées, cash produit, collecte,
+	cartes en main (ramassées), réserve, déblocage des supports, étages.
 
-local CollectionService = game:GetService("CollectionService")
+	- Une carte volée qui arrive dans la zone sûre se pose toute seule sur un support libre.
+	  S'il n'y en a plus, elle part dans la réserve (Storage).
+	- Sur un support de sa base, on peut VENDRE la carte ou la RAMASSER (elle passe dans
+	  les mains, pour aller la faire grader au stand puis la reposer).
+	- 8 supports par étage. Un rebirth ajoute un étage (voir Config.FloorRebirths).
+]]
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Cards = require(ReplicatedStorage.Shared.Cards)
-local CardArt = require(ReplicatedStorage.Shared.CardArt)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local DataService = require(script.Parent.DataService)
 local MonetizationService = require(script.Parent.MonetizationService)
 local Hub = require(script.Parent.Parent.Hub)
 local Showcase = require(script.Parent.Parent.World.Showcase)
-local Entity = require(ReplicatedStorage.Shared.Entity)
-local Nameplate = require(ReplicatedStorage.Shared.Nameplate)
+local CardDisplay = require(script.Parent.Parent.World.CardDisplay)
 
 local GalleryService = {}
 
 local galleries = {}
 local galleryOf: { [Player]: any } = {}
-local state: { [any]: { owner: Player?, pending: number, cardParts: { [number]: BasePart } } } = {}
+local state: { [any]: { owner: Player?, pending: number, cardParts: { [number]: Instance } } } = {}
+
+local function notify(player: Player, text: string, kind: string)
+	Remotes.Notify:FireClient(player, text, kind)
+end
 
 --------------------------------------------------------------------
 -- Infos
@@ -29,9 +39,23 @@ function GalleryService.Get(player: Player)
 	return galleryOf[player]
 end
 
+function GalleryService.Floors(player: Player): number
+	local data = DataService.Get(player)
+	return Config.FloorsFor(data and data.Rebirths or 0)
+end
+
+function GalleryService.MaxCases(player: Player): number
+	return math.min(Config.CasesPerFloor * GalleryService.Floors(player), Config.GalleryMaxCases)
+end
+
+-- supports débloqués (le pass +2 en offre deux de plus)
 function GalleryService.CaseCount(player: Player): number
 	local data = DataService.Get(player)
-	return data and math.min(data.Cases, Config.GalleryMaxCases) or Config.GalleryStartCases
+	if not data then
+		return Config.GalleryStartCases
+	end
+	local bonus = MonetizationService.Owns(player, "ExtraCases") and 2 or 0
+	return math.min(data.Cases + bonus, GalleryService.MaxCases(player))
 end
 
 function GalleryService.CardAt(player: Player, case: number)
@@ -78,7 +102,36 @@ function GalleryService.Pending(player: Player): number
 end
 
 --------------------------------------------------------------------
--- Affichage
+-- Étages : visibles seulement si le propriétaire les a débloqués
+--------------------------------------------------------------------
+local function setVisible(folder: Instance, visible: boolean)
+	for _, d in folder:GetDescendants() do
+		if d:IsA("BasePart") then
+			if d:GetAttribute("T0") == nil then
+				d:SetAttribute("T0", d.Transparency)
+				d:SetAttribute("C0", d.CanCollide)
+			end
+			d.Transparency = visible and d:GetAttribute("T0") or 1
+			d.CanCollide = visible and d:GetAttribute("C0") or false
+		elseif d:IsA("SurfaceGui") or d:IsA("BillboardGui") then
+			d.Enabled = visible
+		elseif d:IsA("PointLight") or d:IsA("SpotLight") then
+			d.Enabled = visible
+		elseif d:IsA("ProximityPrompt") then
+			d.Enabled = visible
+		end
+	end
+end
+
+local function renderFloors(gallery, floors: number)
+	for n, folder in gallery.Floors do
+		setVisible(folder, n <= floors)
+	end
+	gallery.Folder:SetAttribute("Floors", floors)
+end
+
+--------------------------------------------------------------------
+-- Affichage d'un support
 --------------------------------------------------------------------
 local function renderCase(gallery, index: number)
 	local s = state[gallery]
@@ -89,68 +142,57 @@ local function renderCase(gallery, index: number)
 		s.cardParts[index] = nil
 	end
 	local plinth = case.Plinth
-	for _, attr in { "CardId", "Finish", "Grade", "Value", "Cost" } do
+	for _, attr in { "CardId", "Finish", "Grade", "Value", "Cost", "State", "Income" } do
 		plinth:SetAttribute(attr, nil)
 	end
 
 	local owner = s.owner
-	Showcase.style(case.Show, nil)
+	local floors = owner and GalleryService.Floors(owner) or 1
+	if case.Floor > floors then
+		plinth:SetAttribute("State", "hidden")
+		return
+	end
 	if not owner then
-		plinth:SetAttribute("Locked", nil)
-		case.Show.Top.Color = Color3.fromRGB(150, 150, 165)
-		case.Label.Text = ""
+		Showcase.style(case.Show, nil, true)
+		plinth:SetAttribute("State", "free")
 		return
 	end
 
-	local unlocked = index <= GalleryService.CaseCount(owner)
-	plinth:SetAttribute("Locked", not unlocked)
-	case.Show.Top.Color = unlocked and Color3.fromRGB(235, 235, 245) or Color3.fromRGB(110, 110, 125)
-	if not unlocked then
-		-- seule la prochaine vitrine est achetable
-		if index == GalleryService.CaseCount(owner) + 1 then
-			local cost = Config.CaseCost(GalleryService.CaseCount(owner))
-			plinth:SetAttribute("Cost", cost)
-			case.Label.Text = "UNLOCK " .. Format.cash(cost)
-			case.Label.TextColor3 = Color3.fromRGB(255, 210, 60)
+	local count = GalleryService.CaseCount(owner)
+	if index > count then
+		Showcase.style(case.Show, nil, true)
+		-- seul le support suivant est achetable
+		if index == count + 1 then
+			plinth:SetAttribute("State", "buy")
+			local data = DataService.Get(owner)
+			plinth:SetAttribute("Cost", Config.CaseCost(data and data.Cases or count))
 		else
-			case.Label.Text = "LOCKED"
-			case.Label.TextColor3 = Color3.fromRGB(150, 150, 165)
+			plinth:SetAttribute("State", "locked")
 		end
 		return
 	end
 
 	local c = GalleryService.CardAt(owner, index)
 	if not c then
-		case.Label.Text = "EMPTY"
-		case.Label.TextColor3 = Color3.fromRGB(150, 150, 165)
+		Showcase.style(case.Show, nil, false)
+		plinth:SetAttribute("State", "empty")
 		return
 	end
-	local display = Instance.new("Model")
-	display.Name = "Display"
-	local entity = Entity.build(c.Id, c.F)
-	local facing = case.CardCFrame - case.CardCFrame.Position
-	Entity.place(entity, CFrame.new(case.Show.Top.Position + Vector3.new(0, 0.2, 0)) * facing, 0.85)
-	entity.Parent = display
-	local part = CardArt.part(c.Id, c.F, c.G, false)
-	part.Size = Vector3.new(2.2, 3.08, 0.12)
-	part.CFrame = CFrame.new(case.Show.Top.Position + Vector3.new(0, 8.6, 0)) * facing
-	part.Parent = display
-	CollectionService:AddTag(part, "DisplayCard")
-	display.Parent = gallery.Folder
-	Nameplate.attach(entity.PrimaryPart, c.Id, c.F, c.G, Vector3.new(0, 12.5, 0))
+	local display = CardDisplay.build(c.Id, c.F, c.G, case.CardCFrame, 0.62, gallery.Folder)
 	s.cardParts[index] = display
+	plinth:SetAttribute("State", "card")
 	plinth:SetAttribute("CardId", c.Id)
 	plinth:SetAttribute("Finish", c.F)
 	plinth:SetAttribute("Grade", c.G)
 	plinth:SetAttribute("Value", Cards.SellValue(c.Id, c.F, c.G))
-	Showcase.style(case.Show, Cards.ById[c.Id].Rarity)
-	case.Label.Text = ""
-	case.Label.TextColor3 = Color3.fromRGB(80, 230, 140)
+	plinth:SetAttribute("Income", Cards.IncomeOf(c.Id, c.F, c.G))
+	Showcase.style(case.Show, Cards.ById[c.Id].Rarity, false)
 end
 
 function GalleryService.Render(player: Player)
 	local g = galleryOf[player]
 	if g then
+		renderFloors(g, GalleryService.Floors(player))
 		for i = 1, #g.Cases do
 			renderCase(g, i)
 		end
@@ -160,15 +202,30 @@ end
 --------------------------------------------------------------------
 -- Cartes
 --------------------------------------------------------------------
-function GalleryService.AddCard(player: Player, card): number?
+-- Pose une carte sur un support libre, sinon dans la réserve. Renvoie "case", "storage" ou nil.
+function GalleryService.Give(player: Player, id: string, finish: string?, grade: number?): string?
 	local data = DataService.Get(player)
-	local case = GalleryService.FreeCase(player)
-	if not data or not case then
+	if not data then
 		return nil
 	end
-	table.insert(data.Cards, { S = case, Id = card.Id, F = card.F, G = card.G })
-	GalleryService.Render(player)
-	return case
+	Hub.Players.Discover(player, id)
+	local case = GalleryService.FreeCase(player)
+	if case then
+		table.insert(data.Cards, { S = case, Id = id, F = finish or "Normal", G = grade })
+		GalleryService.Render(player)
+		return "case"
+	end
+	if #data.Storage < Config.StorageMax then
+		table.insert(data.Storage, { Id = id, F = finish or "Normal", G = grade })
+		notify(player, "Your cases are full: " .. Cards.Name(id) .. " went to your storage", "info")
+		return "storage"
+	end
+	-- réserve pleine : la carte est vendue automatiquement pour ne rien perdre
+	local value = Cards.SellValue(id, finish, grade)
+	data.Cash += value
+	player:SetAttribute("Cash", data.Cash)
+	notify(player, ("Storage full: %s sold for %s"):format(Cards.Name(id), Format.cash(value)), "cash")
+	return nil
 end
 
 function GalleryService.Sell(player: Player, case: number)
@@ -182,32 +239,102 @@ function GalleryService.Sell(player: Player, case: number)
 	data.Cash += value
 	player:SetAttribute("Cash", data.Cash)
 	GalleryService.Render(player)
-	Remotes.Notify:FireClient(player, ("Sold %s for %s"):format(Cards.DisplayName(c.Id, c.F), Format.cash(value)), "cash")
+	notify(player, ("Sold %s for %s"):format(Cards.DisplayName(c.Id, c.F), Format.cash(value)), "cash")
+end
+
+-- La carte du support passe dans les mains du joueur
+function GalleryService.PickUp(player: Player, case: number)
+	local data = DataService.Get(player)
+	local c, i = GalleryService.CardAt(player, case)
+	if not data or not c then
+		return
+	end
+	if Hub.Zones.IsCarrying(player) then
+		notify(player, "Your hands are full", "error")
+		return
+	end
+	table.remove(data.Cards, i)
+	Hub.Zones.SetCarry(player, { Id = c.Id, F = c.F, G = c.G, Zone = 0 })
+	GalleryService.Render(player)
+end
+
+-- Pose la carte qu'on a en main sur un support libre de sa base
+function GalleryService.Place(player: Player, case: number?)
+	local data = DataService.Get(player)
+	local held = Hub.Zones.GetCarry(player)
+	if not data or not held then
+		return
+	end
+	if case == nil then
+		case = GalleryService.FreeCase(player)
+	end
+	if not case or case > GalleryService.CaseCount(player) or GalleryService.CardAt(player, case) then
+		notify(player, "No free case here", "error")
+		return
+	end
+	Hub.Zones.SetCarry(player, nil)
+	table.insert(data.Cards, { S = case, Id = held.Id, F = held.F, G = held.G })
+	GalleryService.Render(player)
+end
+
+-- Réserve : sortir une carte (dans les mains) ou la vendre
+function GalleryService.TakeFromStorage(player: Player, index: number)
+	local data = DataService.Get(player)
+	local c = data and data.Storage[index]
+	if not c then
+		return
+	end
+	if Hub.Zones.IsCarrying(player) then
+		notify(player, "Your hands are full", "error")
+		return
+	end
+	table.remove(data.Storage, index)
+	Hub.Zones.SetCarry(player, { Id = c.Id, F = c.F, G = c.G, Zone = 0 })
+end
+
+function GalleryService.SellStorage(player: Player, index: number)
+	local data = DataService.Get(player)
+	local c = data and data.Storage[index]
+	if not c then
+		return
+	end
+	table.remove(data.Storage, index)
+	local value = Cards.SellValue(c.Id, c.F, c.G)
+	data.Cash += value
+	player:SetAttribute("Cash", data.Cash)
+	notify(player, ("Sold %s for %s"):format(Cards.DisplayName(c.Id, c.F), Format.cash(value)), "cash")
 end
 
 function GalleryService.UnlockCase(player: Player)
 	local data = DataService.Get(player)
-	if not data or data.Cases >= Config.GalleryMaxCases then
+	if not data then
+		return
+	end
+	if GalleryService.CaseCount(player) >= GalleryService.MaxCases(player) then
+		if GalleryService.Floors(player) < #Config.FloorRebirths then
+			notify(player, "Rebirth to unlock a new floor!", "error")
+		end
 		return
 	end
 	local cost = Config.CaseCost(data.Cases)
 	if data.Cash < cost then
-		Remotes.Notify:FireClient(player, "You need " .. Format.cash(cost), "error")
+		notify(player, "You need " .. Format.cash(cost), "error")
 		return
 	end
 	data.Cash -= cost
 	data.Cases += 1
 	player:SetAttribute("Cash", data.Cash)
 	GalleryService.Render(player)
-	Remotes.Notify:FireClient(player, "New display case unlocked!", "reward")
+	notify(player, "New display case unlocked!", "reward")
 end
 
 function GalleryService.ClearCards(player: Player)
 	local data = DataService.Get(player)
 	if data then
-		data.Cards = {}
-		GalleryService.Render(player)
+		table.clear(data.Cards)
+		table.clear(data.Storage)
 	end
+	GalleryService.Render(player)
 end
 
 function GalleryService.Collect(player: Player)
@@ -216,21 +343,32 @@ function GalleryService.Collect(player: Player)
 	if not g or not data then
 		return
 	end
-	local s = state[g]
-	if s.pending < 1 then
+	local amount = math.floor(state[g].pending)
+	if amount <= 0 then
 		return
 	end
-	local amount = s.pending
-	s.pending = 0
+	state[g].pending -= amount
 	data.Cash += amount
 	player:SetAttribute("Cash", data.Cash)
-	g.CollectLabel.Text = "$0"
-	Remotes.Notify:FireClient(player, "+" .. Format.cash(amount), "cash")
+	g.CollectLabel.Text = ""
+	Remotes.CashFx:FireClient(player, amount)
 end
 
 --------------------------------------------------------------------
 -- Attribution
 --------------------------------------------------------------------
+local function setSign(g, title: string, sub: string)
+	for _, l in g.SignTitles do
+		l.Text = title
+	end
+	for _, l in g.SignSubs do
+		l.Text = sub
+	end
+	for _, f in g.SignFrames do
+		f.Visible = title ~= ""
+	end
+end
+
 function GalleryService.Assign(player: Player)
 	for _, g in galleries do
 		local s = state[g]
@@ -239,10 +377,23 @@ function GalleryService.Assign(player: Player)
 			s.pending = 0
 			galleryOf[player] = g
 			g.Folder:SetAttribute("OwnerId", player.UserId)
-			for _, l in g.SignTitles do
-				l.Text = player.DisplayName:upper() .. "'S BASE"
-			end
+			setSign(g, player.DisplayName, "")
 			player:SetAttribute("GalleryIndex", g.Index)
+			-- cartes posées sur un support qui n'existe plus (anciennes sauvegardes) : en réserve
+			local data = DataService.Get(player)
+			if data then
+				local count = GalleryService.CaseCount(player)
+				local used = {}
+				for i = #data.Cards, 1, -1 do
+					local c = data.Cards[i]
+					if c.S > count or used[c.S] then
+						table.remove(data.Cards, i)
+						table.insert(data.Storage, { Id = c.Id, F = c.F, G = c.G })
+					else
+						used[c.S] = true
+					end
+				end
+			end
 			GalleryService.Render(player)
 			Hub.Training.Render(g, player)
 			return g
@@ -261,16 +412,11 @@ function GalleryService.Release(player: Player)
 	s.pending = 0
 	galleryOf[player] = nil
 	g.Folder:SetAttribute("OwnerId", nil)
-	for _, l in g.SignTitles do
-		l.Text = "FREE BASE"
-	end
-	for i, l in g.SignSubs do
-		l.Text = i == 1 and "Join to claim it" or ""
-	end
-	g.MachineTag.Text = ""
+	-- base libre : pas de nom, l'enseigne reste vide
+	setSign(g, "", "")
 	Hub.Training.Render(g, nil)
-	g.MachineLabel.Text = ""
 	g.CollectLabel.Text = ""
+	renderFloors(g, 1)
 	for i = 1, #g.Cases do
 		renderCase(g, i)
 	end
@@ -284,7 +430,11 @@ function GalleryService.Start(built)
 		for i, case in g.Cases do
 			case.Plinth:SetAttribute("GalleryIndex", g.Index)
 			case.Plinth:SetAttribute("CaseIndex", i)
-			CollectionService:AddTag(case.Plinth, "Case")
+			game:GetService("CollectionService"):AddTag(case.Plinth, "Case")
+		end
+		setSign(g, "", "")
+		renderFloors(g, 1)
+		for i = 1, #g.Cases do
 			renderCase(g, i)
 		end
 		g.Collect.Touched:Connect(function(hit)
@@ -294,6 +444,21 @@ function GalleryService.Start(built)
 				GalleryService.Collect(player)
 			end
 		end)
+		-- monte-charges entre les étages
+		for _, pad in g.Pads do
+			pad.Part.Touched:Connect(function(hit)
+				local model = hit:FindFirstAncestorOfClass("Model")
+				local player = model and Players:GetPlayerFromCharacter(model)
+				if not player or state[g].owner ~= player or pad.Part.Transparency >= 1 then
+					return
+				end
+				local root = model:FindFirstChild("HumanoidRootPart") :: BasePart?
+				if root and (os.clock() - (root:GetAttribute("PadAt") or 0)) > 1.2 then
+					root:SetAttribute("PadAt", os.clock())
+					model:PivotTo(pad.Target)
+				end
+			end)
+		end
 	end
 
 	task.spawn(function()
@@ -316,23 +481,13 @@ function GalleryService.Start(built)
 						g.CollectLabel.Text = "AUTO COLLECT"
 					else
 						s.pending += income
-						g.CollectLabel.Text = Format.cash(s.pending)
+						g.CollectLabel.Text = s.pending >= 1 and Format.cash(s.pending) or ""
 					end
 					player:SetAttribute("Cash", data.Cash)
 					player:SetAttribute("Income", perSecond)
-					-- état de la machine de gradation
-					local ready, busy = 0, #data.Grading
-					for _, e in data.Grading do
-						if e.Ends <= os.time() then
-							ready += 1
-						end
-					end
-					g.MachineLabel.Text = ("%d / %d SLOTS IN USE"):format(busy, Hub.Grading.SlotCount(player))
-					-- revenu de la base affiché sur les enseignes
 					for _, l in g.SignSubs do
-						l.Text = Format.cash(perSecond) .. "/s  ·  " .. #data.Cards .. " cards"
+						l.Text = Format.cash(perSecond) .. "/s"
 					end
-					g.MachineTag.Text = ready > 0 and (ready .. " CARD" .. (ready > 1 and "S" or "") .. " READY!") or ""
 				end
 			end
 		end

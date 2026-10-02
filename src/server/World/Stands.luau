@@ -1,9 +1,10 @@
 --[[
-	Les deux stands au bout de la rue des bases :
-	  "upgrades" : améliorations (tapis, vitrines, labo)
-	  "sell"     : vendre ses cartes, une par une ou toutes d'un coup
+	Les trois stands au bout de la rue des bases :
+	  "upgrades" : améliorations (tapis, supports)
+	  "grading"  : GRADING LAB, on fait noter la carte qu'on a en main (payant, instantané)
+	  "packs"    : packs de cartes, stock qui change toutes les 5 minutes
 	Un stand = estrade en bois, comptoir, étagères, auvent rayé, grande enseigne,
-	un vendeur (une créature du jeu) et des accessoires.
+	un vendeur et des accessoires.
 
 	Stands.build(kind, cf, parent) -> { Prompt = ProximityPrompt }
 	cf : au sol, au milieu de l'avant du comptoir, -Z = vers les clients.
@@ -11,7 +12,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Entity = require(ReplicatedStorage.Shared.Entity)
+local GuardModel = require(script.Parent.GuardModel)
 local Signs = require(script.Parent.Signs)
 
 local Stands = {}
@@ -33,20 +34,28 @@ local LOOK = {
 		Title = "UPGRADES",
 		Sub = "Treadmill · Cases · Lab",
 		Colors = Signs.Palettes.Green,
-		Vendor = "roboraccoon",
 		Prompt = "StandUpgrades",
 		Object = "Upgrades",
 	},
-	sell = {
-		Main = rgb(245, 185, 40),
-		Dark = rgb(120, 70, 10),
-		Light = rgb(255, 230, 130),
-		Title = "SELL CARDS",
-		Sub = "One by one or all at once",
-		Colors = Signs.Palettes.Gold,
-		Vendor = "goldengoose",
-		Prompt = "StandSell",
-		Object = "Sell Cards",
+	grading = {
+		Main = rgb(60, 150, 255),
+		Dark = rgb(20, 45, 110),
+		Light = rgb(150, 210, 255),
+		Title = "GRADING LAB",
+		Sub = "Bring a card, get it graded",
+		Colors = Signs.Palettes.Blue,
+		Prompt = "StandGrading",
+		Object = "Grading Lab",
+	},
+	packs = {
+		Main = rgb(175, 85, 255),
+		Dark = rgb(60, 20, 110),
+		Light = rgb(220, 170, 255),
+		Title = "CARD PACKS",
+		Sub = "New stock every 5 minutes",
+		Colors = Signs.Palettes.Purple,
+		Prompt = "StandPacks",
+		Object = "Card Packs",
 	},
 }
 
@@ -104,19 +113,19 @@ function Stands.build(kind: string, cf: CFrame, parent: Instance)
 	for _, y in { 3.6, 6.2, 8.8 } do
 		part(model, "Shelf", V(16, 0.35, 1.6), at(0, y, 7.8), wood, Enum.Material.Wood)
 	end
-	local rng = Random.new(kind == "sell" and 4 or 7)
+	local rng = Random.new(kind == "packs" and 4 or (kind == "grading" and 9 or 7))
 	for _, y in { 3.6, 6.2, 8.8 } do
 		for k = -6, 6, 2 do
-			if kind == "sell" then
-				-- paquets de cartes et piles de pièces
-				if (k + math.floor(y)) % 4 == 0 then
-					for c = 0, rng:NextInteger(2, 4) do
-						part(model, "Coin", V(0.25, 0.9, 0.9), at(k + 0.3, y + 0.3 + c * 0.26, 7.8) * A(0, 0, rad(90)), rgb(255, 205, 50), Enum.Material.Metal, "Cylinder", false)
-					end
-				else
-					local c = ({ rgb(70, 150, 255), rgb(170, 90, 255), rgb(255, 180, 30), rgb(255, 60, 110) })[rng:NextInteger(1, 4)]
-					part(model, "Pack", V(1.1, 1.6, 0.25), at(k, y + 0.98, 7.9) * A(rad(-8), 0, rad(rng:NextNumber(-6, 6))), c, nil, nil, false)
-				end
+			if kind == "packs" then
+				-- paquets de cartes alignés
+				local c = ({ rgb(170, 175, 190), rgb(200, 215, 235), rgb(255, 200, 50), rgb(110, 230, 255), rgb(200, 90, 255) })[rng:NextInteger(1, 5)]
+				part(model, "Pack", V(1.2, 1.7, 0.3), at(k - 0.4, y + 1.03, 7.9) * A(rad(-8), 0, rad(rng:NextNumber(-5, 5))), c, nil, nil, false)
+				part(model, "Pack", V(1.2, 1.7, 0.3), at(k + 0.5, y + 1.03, 8.1) * A(rad(-8), 0, rad(rng:NextNumber(-5, 5))), c:Lerp(Color3.new(1, 1, 1), 0.2), nil, nil, false)
+			elseif kind == "grading" then
+				-- boîtiers de cartes gradées
+				local slab = part(model, "Slab", V(1.1, 1.6, 0.3), at(k, y + 0.98, 7.9) * A(rad(-8), 0, 0), rgb(235, 240, 250), Enum.Material.Glass, nil, false)
+				slab.Transparency = 0.2
+				part(model, "SlabLabel", V(1.0, 0.3, 0.32), at(k, y + 1.6, 7.9) * A(rad(-8), 0, 0), (k % 4 == 0) and rgb(220, 30, 60) or rgb(40, 40, 52), nil, nil, false)
 			else
 				-- boissons de vitesse et caisses d'outils
 				if (k + math.floor(y)) % 4 == 0 then
@@ -163,13 +172,31 @@ function Stands.build(kind: string, cf: CFrame, parent: Instance)
 	Signs.panel(board, Enum.NormalId.Front, { Title = look.Title, Sub = look.Sub, Colors = look.Colors, PixelsPerStud = 40 })
 	Signs.panel(board, Enum.NormalId.Back, { Title = look.Title, Colors = look.Colors, PixelsPerStud = 30 })
 
-	-- LE VENDEUR derrière le comptoir
-	local vendor = Entity.build(look.Vendor, "Normal")
-	vendor.Parent = model
-	Entity.place(vendor, at(0, 0.6, 3.6), 1.7)
+	-- LE VENDEUR derrière le comptoir, tourné vers les clients
+	local vendor = GuardModel.new(look.Object .. " Vendor", look.Dark, look.Main, model, { Vendor = true })
+	vendor:Place(at(0, 0.6, 3.4), 0, false, false)
 
 	-- ACCESSOIRES SUR LE COMPTOIR
-	if kind == "sell" then
+	if kind == "grading" then
+		-- la machine de gradation : scanner avec écran et fente
+		part(model, "Scanner", V(4.4, 1.8, 2.2), at(3.8, 5.3, -1.4), rgb(40, 44, 58))
+		local scr = part(model, "ScannerScreen", V(3.2, 1.0, 0.15), at(3.8, 5.5, -2.55), rgb(80, 200, 255), Enum.Material.Neon)
+		Signs.panel(scr, Enum.NormalId.Front, { Title = "GRADE 10", Colors = Signs.Palettes.Dark, PixelsPerStud = 60, Stroke = 3, TitleColor = rgb(120, 220, 255) })
+		part(model, "ScannerSlot", V(2.4, 0.15, 0.4), at(3.8, 6.25, -1.6), rgb(80, 255, 140), Enum.Material.Neon)
+		part(model, "ScannerLight", V(0.4, 0.4, 0.4), at(5.6, 6.35, -1.4), rgb(255, 60, 60), Enum.Material.Neon, "Ball")
+		-- loupe
+		part(model, "LensRing", V(0.2, 1.4, 1.4), at(-4.2, 4.9, -1.6) * A(0, 0, rad(90)), rgb(40, 40, 48), nil, "Cylinder")
+		local lens = part(model, "Lens", V(0.1, 1.2, 1.2), at(-4.2, 4.95, -1.6) * A(0, 0, rad(90)), rgb(200, 230, 255), Enum.Material.Glass, "Cylinder")
+		lens.Transparency = 0.4
+		part(model, "LensHandle", V(0.3, 0.3, 1.6), at(-4.2, 4.5, -0.6), rgb(140, 90, 50), Enum.Material.Wood)
+	elseif kind == "packs" then
+		-- présentoir de packs sur le comptoir
+		for k, c in { rgb(170, 175, 190), rgb(200, 215, 235), rgb(255, 200, 50), rgb(110, 230, 255), rgb(200, 90, 255) } do
+			local x = -6 + (k - 1) * 3
+			part(model, "CounterPack", V(1.6, 2.3, 0.35), at(x, 5.6, -1.4) * A(rad(-12), 0, 0), c)
+			part(model, "CounterPackSeal", V(1.65, 0.35, 0.38), at(x, 6.55, -1.6) * A(rad(-12), 0, 0), c:Lerp(Color3.new(1, 1, 1), 0.45))
+		end
+	elseif kind == "sell" then
 		-- caisse enregistreuse
 		part(model, "Register", V(3, 1.4, 2), at(4.5, 5.1, -1.4), rgb(40, 42, 50))
 		local screen = part(model, "RegisterScreen", V(2, 0.9, 0.15), at(4.5, 6.2, -1.9) * A(rad(-20), 0, 0), rgb(80, 255, 140), Enum.Material.Neon)

@@ -1,4 +1,4 @@
--- Interface du joueur : HUD + fenêtres (Shop, Pass, Daily, Rebirth, Index, Upgrades, Lab)
+-- Interface du joueur : HUD + fenêtres (Shop, Pass, Daily, Rebirth, Index, Upgrades, Grading, Packs, Storage)
 
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
@@ -15,6 +15,7 @@ local Odds = require(ReplicatedStorage.Shared.Odds)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Kit = require(script.Parent.UI.Kit)
 local Icons3D = require(script.Parent.UI.Icons3D)
+local Sounds = require(script.Parent.UI.Sounds)
 
 local C = Kit.Colors
 local player = Players.LocalPlayer
@@ -394,7 +395,7 @@ local BOOSTS = {
 	{ "FreezeGuards", "snowflake", "Cyan", "Freeze Guards", "30s for everyone" },
 	{ "ServerLuck", "clover", "Green", "Server Luck x2", "15 min, whole server" },
 	{ "TreadmillUpgrade", "arrowup", "Lime", "Treadmill +1", "One level, right now" },
-	{ "InstantGrade", "clock", "Blue", "Grade All Now", "Finish your lab" },
+	{ "PackRestock", "cardpack", "Purple", "Restock Packs", "Refill the pack stand" },
 	{ "SpeedSmall", "bolt", "Yellow", "Speed Boost", "10 min of training" },
 	{ "SpeedBig", "bolt", "Orange", "Mega Speed", "1 hour of training" },
 }
@@ -478,8 +479,8 @@ local PASS_LOOK = {
 	VIP = { "crown", "Gold" },
 	DoubleCash = { "cash", "Green" },
 	DoubleSpeed = { "bolt", "Orange" },
-	FastGrading = { "clock", "Blue" },
-	MoreGrading = { "cards", "Purple" },
+	CheapGrading = { "clock", "Blue" },
+	ExtraCases = { "cases", "Purple" },
 	AutoCollect = { "magnet", "Red" },
 	Lucky = { "clover", "Candy" },
 }
@@ -653,7 +654,7 @@ do
 	productPrice(skipPrice, "RebirthSkip")
 	Kit.text({
 		Parent = rebirthContent,
-		Text = "Rebirth resets your cash, Speed, treadmill and cards. You keep your cases, Index and passes.",
+		Text = "Rebirth resets your cash, Speed, treadmill and cards. You keep your cases, floors, Index and passes.",
 		Size = UDim2.new(1, 0, 0, 22),
 		Position = UDim2.new(0, 0, 1, -4),
 		AnchorPoint = Vector2.new(0, 1),
@@ -673,7 +674,13 @@ refreshers.Rebirth = function()
 	rbToTitle.Text = "Rebirth " .. (r + 1)
 	rbFrom.Text = mult(now) .. " Money"
 	rbTo.Text = mult(nxt) .. " Money"
-	rbBonus.Text = ("Next rebirth: +%d%% Speed from training and +%d grading slot"):format(Config.RebirthSpeedBonus * 100, Config.GradingSlotsPerRebirth)
+	local floorAt = nil
+	for f, need in Config.FloorRebirths do
+		if need == r + 1 then
+			floorAt = f
+		end
+	end
+	rbBonus.Text = ("Next rebirth: +%d%% Speed from training"):format(Config.RebirthSpeedBonus * 100) .. (floorAt and ("  ·  FLOOR %d for your base!"):format(floorAt) or "")
 	local cash = player:GetAttribute("Cash") or 0
 	rbReqText.Text = "Have " .. bigCash(state.RebirthCost) .. " cash"
 	local p = math.clamp(cash / state.RebirthCost, 0, 1)
@@ -691,8 +698,21 @@ local indexContent = makePanel("Index", "Index", "Blue", "book", Vector2.new(860
 local indexInfo = Kit.text({ Parent = indexContent, Text = "", Size = UDim2.new(0.42, 0, 0, 30), TextXAlignment = Enum.TextXAlignment.Left, Stroke = 3 })
 local filterRow = Kit.new("Frame", { Parent = indexContent, BackgroundTransparency = 1, Size = UDim2.new(0.6, 0, 0, 34), Position = UDim2.new(1, 0, 0, 0), AnchorPoint = Vector2.new(1, 0) })
 list(filterRow, 5, true, Enum.HorizontalAlignment.Right)
-local indexScroll = scroller(indexContent, UDim2.new(1, 0, 1, -44), UDim2.fromOffset(0, 44))
-grid(indexScroll, Vector2.new(150, 210), 10, 5)
+-- paliers : récompenses quand on découvre assez de cartes différentes
+local milestoneRow = Kit.new("Frame", { Parent = indexContent, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 74), Position = UDim2.fromOffset(0, 40) })
+list(milestoneRow, 6, true, Enum.HorizontalAlignment.Center)
+local milestones = {}
+for i, reward in Config.IndexRewards do
+	local chip = Kit.tile({ Parent = milestoneRow, Size = UDim2.fromOffset(96, 72), Palette = "Dark", LayoutOrder = i, Border = 3, Streaks = false })
+	Kit.text({ Parent = chip, Text = tostring(reward.Count), Size = UDim2.new(1, -8, 0, 24), Position = UDim2.new(0.5, 0, 0, 3), AnchorPoint = Vector2.new(0.5, 0), TextColor3 = C.Yellow, Stroke = 2.5 })
+	Kit.text({ Parent = chip, Text = reward.Name, Size = UDim2.new(1, -8, 0, 16), Position = UDim2.new(0.5, 0, 0, 27), AnchorPoint = Vector2.new(0.5, 0), Stroke = 1.5 })
+	local face, _, label = Kit.button({ Parent = chip, Size = UDim2.new(1, -12, 0, 22), Position = UDim2.new(0.5, 0, 1, -5), AnchorPoint = Vector2.new(0.5, 1), Palette = "Grey", Text = "LOCKED", Radius = 4, TextStroke = 1.5 }, function()
+		send("ClaimIndex", i)
+	end)
+	milestones[i] = { chip = chip, face = face, label = label :: TextLabel }
+end
+local indexScroll = scroller(indexContent, UDim2.new(1, 0, 1, -124), UDim2.fromOffset(0, 124))
+grid(indexScroll, Vector2.new(150, 252), 10, 5)
 pad(indexScroll, 6, 4)
 local indexFilter = "All"
 local indexBuiltKey = ""
@@ -705,7 +725,24 @@ local function refreshIndex(force: boolean?)
 	for _, id in state.Index do
 		owned[id] = true
 	end
-	indexInfo.Text = ("%d / %d found  ·  +%d%% cash"):format(#state.Index, #Cards.List, math.floor(#state.Index * Config.IndexBonusPerCard * 100 + 0.5))
+	indexInfo.Text = ("%d / %d found  ·  +%d%% cash"):format(#state.Index, #Cards.List, math.floor((#state.Index * Config.IndexBonusPerCard + (state.CashBonus or 0)) * 100 + 0.5))
+	for i, m in milestones do
+		local reward = Config.IndexRewards[i]
+		local claimed = state.IndexClaimed and state.IndexClaimed[tostring(i)]
+		if claimed then
+			m.label.Text = "DONE"
+			Kit.paint(m.face, "Grey")
+			Kit.paint(m.chip, "Green")
+		elseif #state.Index >= reward.Count then
+			m.label.Text = "CLAIM!"
+			Kit.paint(m.face, "Yellow")
+			Kit.paint(m.chip, "Gold")
+		else
+			m.label.Text = ("%d/%d"):format(#state.Index, reward.Count)
+			Kit.paint(m.face, "Grey")
+			Kit.paint(m.chip, "Dark")
+		end
+	end
 	local key = indexFilter .. ":" .. #state.Index
 	if key == indexBuiltKey and not force then
 		return
@@ -725,10 +762,9 @@ local function refreshIndex(force: boolean?)
 		if indexFilter == "All" or card.Rarity == indexFilter then
 			order += 1
 			local have = owned[card.Id] == true
-			local tile = Kit.tile({ Parent = indexScroll, Palette = RARITY_PALETTE[card.Rarity], LayoutOrder = order, Border = 3, Streaks = false })
-			Icons3D.entity(card.Id, "Normal", { Parent = tile, Size = UDim2.fromOffset(112, 112), Position = UDim2.new(0.5, 0, 0, 4), AnchorPoint = Vector2.new(0.5, 0), Hidden = not have, ZIndex = 2 })
-			Kit.text({ Parent = tile, Text = have and card.Name or "???", Size = UDim2.new(1, -10, 0, 24), Position = UDim2.new(0.5, 0, 0, 114), AnchorPoint = Vector2.new(0.5, 0), Stroke = 2.5 })
-			Kit.text({ Parent = tile, Text = Format.cash(card.Income) .. "/s", Size = UDim2.new(1, -10, 0, 20), Position = UDim2.new(0.5, 0, 0, 138), AnchorPoint = Vector2.new(0.5, 0), TextColor3 = C.Money, Stroke = 2.5 })
+			local tile = Kit.well({ Parent = indexScroll, LayoutOrder = order, Color = Color3.fromRGB(10, 12, 20), Transparency = 0.4, Border = 2, BorderColor = Color3.fromRGB(70, 75, 95) })
+			local art = Kit.new("Frame", { Parent = tile, BackgroundTransparency = 1, Size = UDim2.fromOffset(136, 190), Position = UDim2.new(0.5, 0, 0, 7), AnchorPoint = Vector2.new(0.5, 0), ZIndex = 2 })
+			CardArt.build(art, card.Id, "Normal", { hidden = not have, zIndex = 2, strokeThickness = 3 })
 			local first, best, chance = Odds.where(card.Id)
 			local where = Kit.well({ Parent = tile, Size = UDim2.new(1, -12, 0, 40), Position = UDim2.new(0.5, 0, 1, -6), AnchorPoint = Vector2.new(0.5, 1), Color = Color3.fromRGB(0, 0, 0), Transparency = 0.55, Border = false, Radius = 4 })
 			local line1, line2
@@ -799,13 +835,12 @@ do
 		send("UnlockCase")
 	end)
 	upRows.cases = { title = t2, sub = s3, sub2 = s4, btn = caseBtn, label = caseLabel }
-	-- labo
-	local r3, t3, s5, s6 = row(3, "flask", "Cyan")
-	local slotFace, slotPrice = robuxButton({ Parent = r3, Size = UDim2.fromOffset(150, 56), Position = UDim2.new(1, -12, 0.5, 0), AnchorPoint = Vector2.new(1, 0.5), Palette = "Purple", Caption = "+2 Slots" }, function()
-		send("BuyPass", "MoreGrading")
+	-- étages
+	local r3, t3, s5, s6 = row(3, "house", "Blue")
+	local floorBtn = Kit.button({ Parent = r3, Size = UDim2.fromOffset(150, 56), Position = UDim2.new(1, -12, 0.5, 0), AnchorPoint = Vector2.new(1, 0.5), Palette = "Purple", Text = "REBIRTH", TextStroke = 3 }, function()
+		showPanel("Rebirth")
 	end)
-	passPrice(slotPrice, "MoreGrading")
-	upRows.lab = { title = t3, sub = s5, sub2 = s6, btn = slotFace }
+	upRows.floors = { title = t3, sub = s5, sub2 = s6, btn = floorBtn }
 end
 
 refreshers.Upgrades = function()
@@ -831,207 +866,229 @@ refreshers.Upgrades = function()
 		Kit.paint(t.btn, "Grey")
 	end
 	local c = upRows.cases
-	c.title.Text = ("Display Cases  ·  %d / %d"):format(state.Cases, Config.GalleryMaxCases)
-	c.sub.Text = "Every case shows one card that makes money"
-	c.sub2.Text = "You can also unlock them at your base"
-	if state.Cases < Config.GalleryMaxCases then
-		local cost = Config.CaseCost(state.Cases)
-		c.label.Text = bigCash(cost)
-		Kit.paint(c.btn, (player:GetAttribute("Cash") or 0) >= cost and "Green" or "Grey")
+	c.title.Text = ("Display Cases  ·  %d / %d"):format(state.Cases, state.MaxCases)
+	c.sub.Text = "Each case holds one card that makes money"
+	c.sub2.Text = "Each new case costs more than the last one"
+	if state.Cases < state.MaxCases then
+		c.label.Text = bigCash(state.NextCaseCost)
+		Kit.paint(c.btn, (player:GetAttribute("Cash") or 0) >= state.NextCaseCost and "Green" or "Grey")
 	else
-		c.label.Text = "MAX"
+		c.label.Text = "FULL"
 		Kit.paint(c.btn, "Grey")
 	end
-	local l = upRows.lab
-	l.title.Text = ("Grading Lab  ·  %d slots"):format(state.GradingSlots)
-	l.sub.Text = ("+%d slot every rebirth"):format(Config.GradingSlotsPerRebirth)
-	l.sub2.Text = state.Passes.MoreGrading and "+2 Grading Slots pass: owned" or "Grade more cards at the same time"
-	l.btn.Visible = not state.Passes.MoreGrading
+	local f = upRows.floors
+	f.title.Text = ("Floors  ·  %d / %d"):format(state.Floors, #Config.FloorRebirths)
+	local nextNeed = Config.FloorRebirths[state.Floors + 1]
+	f.sub.Text = nextNeed and ("Floor %d unlocks at rebirth %d"):format(state.Floors + 1, nextNeed) or "All floors unlocked!"
+	f.sub2.Text = ("Every floor adds %d display cases"):format(Config.CasesPerFloor)
+	f.btn.Visible = nextNeed ~= nil
 end
 
 --------------------------------------------------------------------
--- VENTE (stand "Sell Cards" au bout de la rue)
+-- GRADING LAB (stand au bout de la rue) : on fait noter la carte qu'on a en main
 --------------------------------------------------------------------
-local sellContent, sellHeader = makePanel("Sell", "Sell Cards", "Gold", "cashpile", Vector2.new(880, 590))
-local sellFilter = "all"
-local sellConfirm = false
-local sellFilterButtons = {}
-local sellTotal = Kit.text({ Parent = sellContent, Text = "", Size = UDim2.new(0.42, 0, 0, 34), Position = UDim2.fromOffset(0, 2), TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C.Money, Stroke = 3 })
-local sellFilterRow = Kit.new("Frame", { Parent = sellContent, BackgroundTransparency = 1, Size = UDim2.fromOffset(380, 38), Position = UDim2.new(1, 0, 0, 0), AnchorPoint = Vector2.new(1, 0) })
-list(sellFilterRow, 8, true, Enum.HorizontalAlignment.Right)
-local sellScroll = scroller(sellContent, UDim2.new(1, 0, 1, -48), UDim2.fromOffset(0, 48))
-local sellEmpty = Kit.text({ Parent = sellContent, Text = "No cards to sell here. Steal some in the shops!", Size = UDim2.new(1, -40, 0, 34), Position = UDim2.new(0.5, 0, 0.45, 0), AnchorPoint = Vector2.new(0.5, 0.5), TextColor3 = Color3.fromRGB(190, 195, 210), Stroke = 2.5, Visible = false })
-grid(sellScroll, Vector2.new(150, 284), 12, 5)
-pad(sellScroll, 6, 4)
-local sellAllFace, sellAllLabel
-sellAllFace, _, sellAllLabel = Kit.button({ Parent = sellHeader, Size = UDim2.fromOffset(220, 52), Position = UDim2.new(1, -78, 0, 10), AnchorPoint = Vector2.new(1, 0), Palette = "Red", Text = "SELL ALL", TextStroke = 3 }, function()
-	if not sellConfirm then
-		-- premier clic : on demande confirmation
-		sellConfirm = true
-		sellAllLabel.Text = "SURE? CLICK AGAIN"
-		Kit.paint(sellAllFace, "Orange")
-		task.delay(3, function()
-			sellConfirm = false
-			sellAllLabel.Text = "SELL ALL"
-			Kit.paint(sellAllFace, "Red")
-		end)
-		return
-	end
-	sellConfirm = false
-	sellAllLabel.Text = "SELL ALL"
-	Kit.paint(sellAllFace, "Red")
-	send("SellAll", sellFilter)
-end)
-
-local function refreshSell()
-	if not state then
-		return
-	end
-	Kit.clear(sellScroll)
-	local items = {}
-	if sellFilter ~= "base" then
-		for i, raw in state.Raw do
-			table.insert(items, { id = raw.Id, f = raw.F, value = Cards.RawSellValue(raw.Id, raw.F), where = "Waiting in lab", action = "SellRaw", arg = i })
-		end
-	end
-	if sellFilter ~= "raw" then
-		for _, c in state.Cards or {} do
-			table.insert(items, { id = c.Id, f = c.F, g = c.G, value = Cards.SellValue(c.Id, c.F, c.G), where = "In your base", action = "SellCase", arg = c.S })
-		end
-	end
-	local total = 0
-	for i, it in items do
-		total += it.value
-		local cell = Kit.well({ Parent = sellScroll, LayoutOrder = i, Color = Color3.fromRGB(10, 12, 20), Transparency = 0.35, Border = 2, BorderColor = Color3.fromRGB(70, 75, 95) })
-		local art = Kit.new("Frame", { Parent = cell, BackgroundTransparency = 1, Size = UDim2.fromOffset(136, 190), Position = UDim2.new(0.5, 0, 0, 7), AnchorPoint = Vector2.new(0.5, 0), ZIndex = 2 })
-		CardArt.build(art, it.id, it.f, { grade = it.g, zIndex = 2, strokeThickness = 3 })
-		Kit.text({ Parent = cell, Text = it.where, Size = UDim2.new(1, -10, 0, 16), Position = UDim2.new(0.5, 0, 0, 200), AnchorPoint = Vector2.new(0.5, 0), TextColor3 = Color3.fromRGB(200, 205, 220), Stroke = 2 })
-		Kit.button({ Parent = cell, Size = UDim2.new(1, -16, 0, 50), Position = UDim2.new(0.5, 0, 1, -8), AnchorPoint = Vector2.new(0.5, 1), Palette = "Green", Text = "SELL " .. Format.cash(it.value), TextStroke = 2.5 }, function()
-			send(it.action, it.arg)
-		end)
-	end
-	sellEmpty.Visible = #items == 0
-	sellTotal.Text = ("%d cards  ·  worth %s"):format(#items, Format.cash(total))
-end
-refreshers.Sell = refreshSell
-
-for i, info in { { "all", "ALL" }, { "raw", "WAITING" }, { "base", "IN BASE" } } do
-	local face = Kit.button({ Parent = sellFilterRow, Size = UDim2.fromOffset(i == 1 and 80 or 130, 38), Palette = i == 1 and "Yellow" or "Dark", Text = info[2], LayoutOrder = i, TextStroke = 2.5 }, function()
-		sellFilter = info[1]
-		for key, f in sellFilterButtons do
-			Kit.paint(f, key == sellFilter and "Yellow" or "Dark")
-		end
-		refreshSell()
-	end)
-	sellFilterButtons[info[1]] = face
-end
-
---------------------------------------------------------------------
--- GRADING LAB
---------------------------------------------------------------------
-local labContent, labHeader = makePanel("Lab", "Grading Lab", "Cyan", "flask", Vector2.new(820, 560))
-Kit.button({ Parent = labHeader, Size = UDim2.fromOffset(170, 52), Position = UDim2.new(1, -258, 0, 10), AnchorPoint = Vector2.new(1, 0), Palette = "Green", Text = "COLLECT ALL", TextStroke = 3 }, function()
-	send("CollectAll")
-end)
+local gradeContent = makePanel("Grading", "Grading Lab", "Blue", "clock", Vector2.new(820, 560))
+local gradeArtHolder = Kit.new("Frame", { Parent = gradeContent, BackgroundTransparency = 1, Size = UDim2.fromOffset(250, 350), Position = UDim2.fromOffset(10, 10) })
+local gradeEmpty = Kit.text({
+	Parent = gradeContent,
+	Text = "Pick up a card from a case in your base (PICK UP), then come back here to grade it.",
+	Size = UDim2.new(1, -60, 0, 80),
+	Position = UDim2.fromScale(0.5, 0.4),
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	TextWrapped = true,
+	Stroke = 3,
+	Visible = false,
+})
+local gradeRight = Kit.new("Frame", { Parent = gradeContent, BackgroundTransparency = 1, Size = UDim2.new(1, -290, 1, 0), Position = UDim2.fromOffset(290, 0) })
+local gradeTitle = Kit.text({ Parent = gradeRight, Text = "", Size = UDim2.new(1, 0, 0, 40), TextXAlignment = Enum.TextXAlignment.Left, Stroke = 3 })
+local gradeSub = Kit.text({ Parent = gradeRight, Text = "", Size = UDim2.new(1, 0, 0, 24), Position = UDim2.fromOffset(0, 44), TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C.Money, Stroke = 2.5 })
+-- chances de chaque note
+local oddsBox = Kit.well({ Parent = gradeRight, Size = UDim2.new(1, 0, 0, 170), Position = UDim2.fromOffset(0, 80), Color = Color3.fromRGB(10, 12, 20), Transparency = 0.35, Border = 2, BorderColor = Color3.fromRGB(70, 75, 95) })
 do
-	local _, p = robuxButton({ Parent = labHeader, Size = UDim2.fromOffset(170, 52), Position = UDim2.new(1, -78, 0, 10), AnchorPoint = Vector2.new(1, 0), Palette = "Yellow", Caption = "Grade All" }, function()
-		send("BuyProduct", "InstantGrade")
-	end)
-	productPrice(p, "InstantGrade")
+	local total = 0
+	for _, w in Cards.GradeWeights do
+		total += w
+	end
+	Kit.text({ Parent = oddsBox, Text = "Grade chances", Size = UDim2.new(1, -20, 0, 24), Position = UDim2.fromOffset(10, 6), TextXAlignment = Enum.TextXAlignment.Left, Stroke = 2.5 })
+	local g = Kit.new("Frame", { Parent = oddsBox, BackgroundTransparency = 1, Size = UDim2.new(1, -20, 0, 128), Position = UDim2.fromOffset(10, 34) })
+	grid(g, Vector2.new(88, 58), 6, 5)
+	for grade = 10, 1, -1 do
+		local cell = Kit.tile({ Parent = g, Palette = grade >= 10 and "Red" or (grade >= 9 and "Gold" or (grade >= 7 and "Green" or "Dark")), LayoutOrder = 11 - grade, Border = 2, Streaks = false })
+		Kit.text({ Parent = cell, Text = ("G%d  x%s"):format(grade, tostring(Cards.GradeMult[grade])), Size = UDim2.new(1, -8, 0, 22), Position = UDim2.new(0.5, 0, 0, 4), AnchorPoint = Vector2.new(0.5, 0), Stroke = 2 })
+		Kit.text({ Parent = cell, Text = Odds.text(Cards.GradeWeights[grade] / total), Size = UDim2.new(1, -8, 0, 22), Position = UDim2.new(0.5, 0, 0, 30), AnchorPoint = Vector2.new(0.5, 0), TextColor3 = C.Yellow, Stroke = 2 })
+	end
 end
-local labInfo = Kit.text({ Parent = labContent, Text = "", Size = UDim2.new(1, 0, 0, 28), TextXAlignment = Enum.TextXAlignment.Left, Stroke = 3 })
-local gradingScroll = Kit.new("ScrollingFrame", {
-	Parent = labContent,
-	BackgroundTransparency = 1,
-	BorderSizePixel = 0,
-	Size = UDim2.new(1, 0, 0, 262),
-	Position = UDim2.fromOffset(0, 34),
-	CanvasSize = UDim2.new(),
-	AutomaticCanvasSize = Enum.AutomaticSize.X,
-	ScrollingDirection = Enum.ScrollingDirection.X,
-	ScrollBarThickness = 8,
-})
-list(gradingScroll, 12, true)
-pad(gradingScroll, 6, 4)
-local rawTitle = Kit.text({ Parent = labContent, Text = "", Size = UDim2.new(1, 0, 0, 28), Position = UDim2.fromOffset(0, 302), TextXAlignment = Enum.TextXAlignment.Left, Stroke = 3 })
-local rawScroll = Kit.new("ScrollingFrame", {
-	Parent = labContent,
-	BackgroundTransparency = 1,
-	BorderSizePixel = 0,
-	Size = UDim2.new(1, 0, 0, 120),
-	Position = UDim2.fromOffset(0, 334),
-	CanvasSize = UDim2.new(),
-	AutomaticCanvasSize = Enum.AutomaticSize.X,
-	ScrollingDirection = Enum.ScrollingDirection.X,
-	ScrollBarThickness = 8,
-})
-list(rawScroll, 10, true)
-pad(rawScroll, 4, 4)
+local gradeBtn, _, gradeBtnLabel = Kit.button({ Parent = gradeRight, Size = UDim2.new(1, 0, 0, 84), Position = UDim2.fromOffset(0, 266), Palette = "Green", Text = "GRADE", TextStroke = 4, Border = 4 }, function()
+	send("GradeHeld")
+end)
+local gradeHint = Kit.text({ Parent = gradeRight, Text = "", Size = UDim2.new(1, 0, 0, 40), Position = UDim2.fromOffset(0, 360), TextWrapped = true, TextColor3 = Color3.fromRGB(200, 205, 220), Stroke = 2 })
+local cheapFace = robuxButton({ Parent = gradeRight, Size = UDim2.fromOffset(260, 52), Position = UDim2.new(0, 0, 1, -6), AnchorPoint = Vector2.new(0, 1), Palette = "Purple", Caption = "Half-Price Grading" }, function()
+	send("BuyPass", "CheapGrading")
+end)
+local heldShown = ""
 
-local gradingTimers: { { label: TextLabel, fill: Frame, face: Frame, btnLabel: TextLabel, entry: any } } = {}
-
-local function refreshLab()
+refreshers.Grading = function()
 	if not state then
 		return
 	end
-	labInfo.Text = ("%d / %d slots in use"):format(#state.Grading, state.GradingSlots)
-	Kit.clear(gradingScroll)
-	gradingTimers = {}
-	for i = 1, state.GradingSlots do
-		local entry = state.Grading[i]
-		local slot = Kit.tile({ Parent = gradingScroll, Size = UDim2.fromOffset(170, 244), Palette = entry and RARITY_PALETTE[Cards.ById[entry.Id].Rarity] or "Dark", LayoutOrder = i, Border = 3, Streaks = false })
-		if entry then
-			local art = Kit.new("Frame", { Parent = slot, BackgroundTransparency = 1, Size = UDim2.fromOffset(100, 140), Position = UDim2.new(0.5, 0, 0, 10), AnchorPoint = Vector2.new(0.5, 0), ZIndex = 2 })
-			CardArt.build(art, entry.Id, entry.F, { zIndex = 2, strokeThickness = 3 })
-			local _, fill, left = Kit.bar({ Parent = slot, Size = UDim2.new(1, -20, 0, 26), Position = UDim2.fromOffset(10, 156), Palette = "Cyan", ZIndex = 2 })
-			left.Size = UDim2.new(1, -12, 1, -6)
-			left.TextXAlignment = Enum.TextXAlignment.Center
-			local face, _, btnLabel = Kit.button({ Parent = slot, Size = UDim2.new(1, -20, 0, 44), Position = UDim2.new(0.5, 0, 1, -10), AnchorPoint = Vector2.new(0.5, 1), Palette = "Grey", Text = "GRADING", TextStroke = 3 }, function()
-				send("Collect", i)
-			end)
-			table.insert(gradingTimers, { label = left, fill = fill, face = face, btnLabel = btnLabel :: TextLabel, entry = entry })
-		else
-			Kit.text({ Parent = slot, Text = "EMPTY", Size = UDim2.new(1, -20, 0, 34), Position = UDim2.fromScale(0.5, 0.5), AnchorPoint = Vector2.new(0.5, 0.5), TextColor3 = Color3.fromRGB(150, 155, 175), Stroke = 2.5 })
+	local h = state.Held
+	gradeEmpty.Visible = h == nil
+	gradeRight.Visible = h ~= nil
+	gradeArtHolder.Visible = h ~= nil
+	cheapFace.Visible = not state.Passes.CheapGrading
+	if not h then
+		return
+	end
+	local key = h.Id .. (h.F or "") .. tostring(h.G)
+	if key ~= heldShown then
+		heldShown = key
+		Kit.clear(gradeArtHolder)
+		CardArt.build(gradeArtHolder, h.Id, h.F, { grade = h.G, zIndex = 2, strokeThickness = 5 })
+	end
+	gradeTitle.Text = Cards.DisplayName(h.Id, h.F)
+	gradeSub.Text = ("Now %s/s"):format(Format.cash(Cards.IncomeOf(h.Id, h.F, h.G))) .. (h.G and ("  ·  Grade %d"):format(h.G) or "  ·  Not graded")
+	gradeBtnLabel.Text = (h.G and "REGRADE  " or "GRADE  ") .. bigCash(h.GradeCost)
+	Kit.paint(gradeBtn, (player:GetAttribute("Cash") or 0) >= h.GradeCost and "Green" or "Grey")
+	gradeHint.Text = h.G and "Regrading gives a brand new grade, it can go up or down!" or "The grade multiplies the money your card makes."
+end
+
+--------------------------------------------------------------------
+-- CARD PACKS (stand au bout de la rue) : stock qui change toutes les 5 minutes
+--------------------------------------------------------------------
+local packContent, packHeader = makePanel("Packs", "Card Packs", "Purple", "cardpack", Vector2.new(900, 580))
+local packTimer = Kit.tile({ Parent = packHeader, Size = UDim2.fromOffset(250, 52), Position = UDim2.new(1, -82, 0, 10), AnchorPoint = Vector2.new(1, 0), Palette = "Yellow", Radius = 6 })
+local packTimerText = Kit.text({ Parent = packTimer, Text = "", Size = UDim2.new(1, -16, 1, -12), Position = UDim2.fromScale(0.5, 0.5), AnchorPoint = Vector2.new(0.5, 0.5), Stroke = 3 })
+local luckBack, luckFill, luckLeft, luckRight = Kit.bar({ Parent = packContent, Size = UDim2.new(1, -290, 0, 36), Position = UDim2.fromOffset(0, 0), Palette = "Pink" })
+local _ = luckBack
+local _, restockPrice = robuxButton({ Parent = packContent, Size = UDim2.fromOffset(270, 44), Position = UDim2.new(1, 0, 0, -4), AnchorPoint = Vector2.new(1, 0), Palette = "Green", Caption = "Restock now" }, function()
+	send("BuyProduct", "PackRestock")
+end)
+productPrice(restockPrice, "PackRestock")
+local packRow = Kit.new("Frame", { Parent = packContent, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 1, -56), Position = UDim2.fromOffset(0, 56) })
+grid(packRow, Vector2.new(164, 430), 9, 5)
+local PACK_PALETTE = { Basic = "Grey", Silver = "Blue", Gold = "Gold", Diamond = "Cyan", Cosmic = "Candy" }
+local packTiles = {}
+for i, key in Config.PackOrder do
+	local pack = Config.Packs[key]
+	local tile = Kit.tile({ Parent = packRow, Palette = PACK_PALETTE[key], LayoutOrder = i, Border = 3, Rot = 30 })
+	icon("cardpack", { Parent = tile, Size = UDim2.fromOffset(120, 120), Position = UDim2.new(0.5, 0, 0, 6), AnchorPoint = Vector2.new(0.5, 0), Color = pack.Color, ZIndex = 2 })
+	Kit.text({ Parent = tile, Text = pack.Name, Size = UDim2.new(1, -12, 0, 28), Position = UDim2.new(0.5, 0, 0, 128), AnchorPoint = Vector2.new(0.5, 0), Stroke = 3 })
+	local stock = Kit.text({ Parent = tile, Text = "", Size = UDim2.new(1, -12, 0, 22), Position = UDim2.new(0.5, 0, 0, 158), AnchorPoint = Vector2.new(0.5, 0), TextColor3 = C.Yellow, Stroke = 2.5 })
+	-- chances par rareté
+	local odds = Kit.well({ Parent = tile, Size = UDim2.new(1, -16, 0, 150), Position = UDim2.new(0.5, 0, 0, 186), AnchorPoint = Vector2.new(0.5, 0), Color = Color3.fromRGB(0, 0, 0), Transparency = 0.5, Border = false, Radius = 6 })
+	local oddsList = Kit.new("Frame", { Parent = odds, BackgroundTransparency = 1, Size = UDim2.new(1, -12, 1, -10), Position = UDim2.fromOffset(6, 5) })
+	list(oddsList, 2)
+	local total = 0
+	for _, w in pack.Odds do
+		total += w
+	end
+	for order, rarity in Cards.RarityOrder do
+		local w = pack.Odds[rarity]
+		if w then
+			local line = Kit.new("Frame", { Parent = oddsList, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 22), LayoutOrder = order })
+			Kit.text({ Parent = line, Text = rarity, Size = UDim2.new(0.62, 0, 1, 0), TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = rarity == "Secret" and C.White or Cards.Rarities[rarity].Color, Stroke = 2 })
+			Kit.text({ Parent = line, Text = Odds.text(w / total), Size = UDim2.new(0.38, 0, 1, 0), Position = UDim2.fromScale(0.62, 0), TextXAlignment = Enum.TextXAlignment.Right, Stroke = 2 })
 		end
 	end
+	Kit.text({ Parent = tile, Text = ("%d%% bonus card"):format(pack.BonusChance * 100), Size = UDim2.new(1, -12, 0, 18), Position = UDim2.new(0.5, 0, 0, 340), AnchorPoint = Vector2.new(0.5, 0), TextColor3 = Color3.fromRGB(255, 230, 150), Stroke = 2 })
+	local buy, _, buyLabel = Kit.button({ Parent = tile, Size = UDim2.new(1, -16, 0, 52), Position = UDim2.new(0.5, 0, 1, -8), AnchorPoint = Vector2.new(0.5, 1), Palette = "Green", Text = bigCash(pack.Price), TextStroke = 3 }, function()
+		send("BuyPack", key)
+	end)
+	packTiles[key] = { stock = stock, buy = buy, label = buyLabel :: TextLabel }
+end
 
-	Kit.clear(rawScroll)
-	rawTitle.Text = ("Waiting in line  %d / %d"):format(#state.Raw, Config.MaxRawCards)
-	for i, raw in state.Raw do
-		local card = Kit.tile({ Parent = rawScroll, Size = UDim2.fromOffset(230, 104), Palette = RARITY_PALETTE[Cards.ById[raw.Id].Rarity], LayoutOrder = i, Border = 3, Streaks = false })
-		local art = Kit.new("Frame", { Parent = card, BackgroundTransparency = 1, Size = UDim2.fromOffset(62, 86), Position = UDim2.fromOffset(9, 9), ZIndex = 2 })
-		CardArt.build(art, raw.Id, raw.F, { zIndex = 2, strokeThickness = 2 })
-		Kit.text({ Parent = card, Text = Cards.Name(raw.Id), Size = UDim2.new(1, -86, 0, 26), Position = UDim2.fromOffset(78, 8), TextXAlignment = Enum.TextXAlignment.Left, Stroke = 2.5 })
-		Kit.button({ Parent = card, Size = UDim2.fromOffset(70, 42), Position = UDim2.fromOffset(78, 50), Palette = "Blue", Text = "GRADE", TextStroke = 2.5 }, function()
-			send("StartRaw", i)
+refreshers.Packs = function()
+	if not state or not state.Packs then
+		return
+	end
+	local cash = player:GetAttribute("Cash") or 0
+	for key, t in packTiles do
+		local n = state.Packs.Remaining[key] or 0
+		local price = Config.Packs[key].Price
+		t.stock.Text = n > 0 and ("x%d in stock"):format(n) or "OUT OF STOCK"
+		t.stock.TextColor3 = n > 0 and C.Yellow or Color3.fromRGB(255, 100, 100)
+		t.label.Text = n > 0 and bigCash(price) or "SOLD OUT"
+		Kit.paint(t.buy, (n > 0 and cash >= price) and "Green" or "Grey")
+	end
+	local luck = state.Packs.Luck or 0
+	luckFill.Size = UDim2.fromScale(math.clamp(luck / Config.PackLuckMax, 0.02, 1), 1)
+	luckLeft.Text = ("Pack luck +%d%%"):format(math.floor(luck * 100 + 0.5))
+	luckRight.Text = "grows with every pack"
+	local left = state.Packs.NextAt - serverNow()
+	packTimerText.Text = "NEW STOCK IN " .. Kit.formatTime(left)
+end
+
+--------------------------------------------------------------------
+-- RÉSERVE : cartes en trop quand tous les supports sont pleins
+--------------------------------------------------------------------
+local storageContent = makePanel("Storage", "Storage", "Orange", "crate", Vector2.new(860, 560))
+local storageInfo = Kit.text({ Parent = storageContent, Text = "", Size = UDim2.new(1, 0, 0, 30), TextXAlignment = Enum.TextXAlignment.Left, Stroke = 3 })
+local storageScroll = scroller(storageContent, UDim2.new(1, 0, 1, -40), UDim2.fromOffset(0, 40))
+grid(storageScroll, Vector2.new(150, 300), 10, 5)
+pad(storageScroll, 6, 4)
+refreshers.Storage = function()
+	if not state then
+		return
+	end
+	Kit.clear(storageScroll)
+	storageInfo.Text = ("%d / %d cards in storage  ·  take one in your hands to place it"):format(#state.Storage, Config.StorageMax)
+	for i, c in state.Storage do
+		local cell = Kit.well({ Parent = storageScroll, LayoutOrder = i, Color = Color3.fromRGB(10, 12, 20), Transparency = 0.35, Border = 2, BorderColor = Color3.fromRGB(70, 75, 95) })
+		local art = Kit.new("Frame", { Parent = cell, BackgroundTransparency = 1, Size = UDim2.fromOffset(136, 190), Position = UDim2.new(0.5, 0, 0, 6), AnchorPoint = Vector2.new(0.5, 0), ZIndex = 2 })
+		CardArt.build(art, c.Id, c.F, { grade = c.G, zIndex = 2, strokeThickness = 3 })
+		Kit.button({ Parent = cell, Size = UDim2.new(1, -16, 0, 40), Position = UDim2.new(0.5, 0, 0, 204), AnchorPoint = Vector2.new(0.5, 0), Palette = "Blue", Text = "TAKE", TextStroke = 2.5 }, function()
+			send("TakeStorage", i)
 		end)
-		Kit.button({ Parent = card, Size = UDim2.fromOffset(64, 42), Position = UDim2.fromOffset(154, 50), Palette = "Red", Text = "SELL", TextStroke = 2.5 }, function()
-			send("SellRaw", i)
+		Kit.button({ Parent = cell, Size = UDim2.new(1, -16, 0, 40), Position = UDim2.new(0.5, 0, 1, -8), AnchorPoint = Vector2.new(0.5, 1), Palette = "Red", Text = "SELL " .. Format.cash(Cards.SellValue(c.Id, c.F, c.G)), TextStroke = 2.5 }, function()
+			send("SellStorage", i)
 		end)
 	end
 end
-refreshers.Lab = refreshLab
 
-local function tickLab()
-	local now = serverNow()
-	for _, t in gradingTimers do
-		local entry = t.entry
-		local total = Cards.Rarities[Cards.ById[entry.Id].Rarity].GradeTime
-		if state.Passes.FastGrading then
-			total /= 2
-		end
-		local left = entry.Ends - now
-		if left <= 0 then
-			t.label.Text = "READY"
-			t.fill.Size = UDim2.fromScale(1, 1)
-			t.btnLabel.Text = "COLLECT"
-			Kit.paint(t.face, "Green")
-		else
-			t.label.Text = Format.time(left)
-			t.fill.Size = UDim2.fromScale(math.clamp(1 - left / total, 0.03, 1), 1)
-		end
+--------------------------------------------------------------------
+-- OUVERTURE D'UN PACK
+--------------------------------------------------------------------
+local packOverlay = Kit.new("Frame", { Name = "PackOpening", Parent = gui, BackgroundColor3 = Color3.fromRGB(8, 6, 16), BackgroundTransparency = 0.25, Size = UDim2.new(1, 0, 1, 80), Position = UDim2.fromOffset(0, -60), Visible = false, ZIndex = 70 })
+local packTitle = Kit.text({ Parent = packOverlay, Text = "", Size = UDim2.fromOffset(700, 60), Position = UDim2.new(0.5, 0, 0, 90), AnchorPoint = Vector2.new(0.5, 0), Stroke = 4.5, ZIndex = 72 })
+local packCards = Kit.new("Frame", { Parent = packOverlay, BackgroundTransparency = 1, Size = UDim2.fromOffset(640, 400), Position = UDim2.fromScale(0.5, 0.52), AnchorPoint = Vector2.new(0.5, 0.5), ZIndex = 71 })
+list(packCards, 30, true, Enum.HorizontalAlignment.Center)
+local packHint = Kit.text({ Parent = packOverlay, Text = "Click to continue", Size = UDim2.fromOffset(400, 30), Position = UDim2.new(0.5, 0, 1, -110), AnchorPoint = Vector2.new(0.5, 0), TextColor3 = Color3.fromRGB(200, 205, 220), Stroke = 2.5, ZIndex = 72 })
+local packClose = Kit.new("TextButton", { Parent = packOverlay, BackgroundTransparency = 1, Text = "", Size = UDim2.fromScale(1, 1), ZIndex = 80 })
+packClose.Activated:Connect(function()
+	packOverlay.Visible = false
+end)
+local packToken = 0
+Remotes.PackOpened.OnClientEvent:Connect(function(info)
+	packToken += 1
+	local token = packToken
+	closePanels()
+	Kit.clear(packCards)
+	local pack = Config.Packs[info.Pack]
+	packTitle.Text = (pack and pack.Name:upper() or "PACK") .. (info.Bonus and "  +  BONUS CARD!" or "")
+	packTitle.TextColor3 = pack and pack.Color or C.White
+	packHint.Text = ("Pack luck now +%d%%  ·  click to continue"):format(math.floor((info.Luck or 0) * 100 + 0.5))
+	packOverlay.Visible = true
+	for i, c in info.Cards do
+		local holder = Kit.new("Frame", { Parent = packCards, BackgroundTransparency = 1, Size = UDim2.fromOffset(250, 350), LayoutOrder = i, ZIndex = 72 })
+		local scale = Kit.new("UIScale", { Parent = holder, Scale = 0 })
+		-- la carte apparaît en grossissant, avec une lueur à la couleur de la rareté
+		local rarity = Cards.Rarities[Cards.ById[c.Id].Rarity]
+		local glow = Kit.new("Frame", { Parent = holder, BackgroundColor3 = rarity.Name == "Secret" and C.White or rarity.Color, BackgroundTransparency = 0.55, Size = UDim2.new(1, 40, 1, 40), Position = UDim2.fromScale(0.5, 0.5), AnchorPoint = Vector2.new(0.5, 0.5), ZIndex = 72 }, { Kit.corner(30) })
+		local _ = glow
+		local art = Kit.new("Frame", { Parent = holder, BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 73 })
+		CardArt.build(art, c.Id, c.F, { zIndex = 73, strokeThickness = 5 })
+		task.delay(0.35 + (i - 1) * 0.6, function()
+			if token == packToken then
+				TweenService:Create(scale, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+			end
+		end)
 	end
-end
+	task.delay(6, function()
+		if token == packToken then
+			packOverlay.Visible = false
+		end
+	end)
+end)
 
 --------------------------------------------------------------------
 -- ADMIN (seulement pour toi et les admins de Config)
@@ -1092,9 +1149,50 @@ Kit.button({ Parent = tabs, Size = UDim2.fromOffset(170, 56), Palette = "Lime", 
 end)
 
 -- pastille d'event (seulement quand il se passe quelque chose)
-local eventPill = Kit.well({ Name = "Event", Parent = gui, Size = UDim2.fromOffset(380, 34), Position = UDim2.new(0.5, 0, 0, 82), AnchorPoint = Vector2.new(0.5, 0), Color = Color3.fromRGB(20, 20, 30), Transparency = 0.25 })
-eventPill.Visible = false
-local eventText = Kit.text({ Parent = eventPill, Text = "", Size = UDim2.new(1, -16, 1, -8), Position = UDim2.fromScale(0.5, 0.5), AnchorPoint = Vector2.new(0.5, 0.5), TextColor3 = C.Yellow, Stroke = 2.5 })
+-- pastilles des events en cours : icône, nom, minuteur et barre de temps
+local eventRow = Kit.new("Frame", { Name = "Events", Parent = gui, BackgroundTransparency = 1, Size = UDim2.fromOffset(900, 46), Position = UDim2.new(0.5, 0, 0, 80), AnchorPoint = Vector2.new(0.5, 0) })
+list(eventRow, 8, true, Enum.HorizontalAlignment.Center)
+local eventChips: { [string]: any } = {}
+local function eventChip(key: string, name: string, iconKind: string, palette: string)
+	if eventChips[key] then
+		return eventChips[key]
+	end
+	local tile = Kit.tile({ Parent = eventRow, Size = UDim2.fromOffset(250, 44), Palette = palette, Border = 3, Radius = 8 })
+	icon(iconKind, { Parent = tile, Size = UDim2.fromOffset(52, 52), Position = UDim2.fromOffset(-8, -6), ZIndex = 3 })
+	local label = Kit.text({ Parent = tile, Text = name, Size = UDim2.new(1, -120, 0, 26), Position = UDim2.fromOffset(46, 4), TextXAlignment = Enum.TextXAlignment.Left, Stroke = 2.5 })
+	local timer = Kit.text({ Parent = tile, Text = "", Size = UDim2.fromOffset(66, 26), Position = UDim2.new(1, -8, 0, 4), AnchorPoint = Vector2.new(1, 0), TextXAlignment = Enum.TextXAlignment.Right, Stroke = 2.5 })
+	local barBack = Kit.new("Frame", { Parent = tile, BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.5, Size = UDim2.new(1, -56, 0, 6), Position = UDim2.fromOffset(46, 32), ZIndex = 2 }, { Kit.corner(3) })
+	local bar = Kit.new("Frame", { Parent = barBack, BackgroundColor3 = Color3.new(1, 1, 1), Size = UDim2.fromScale(1, 1), ZIndex = 3 }, { Kit.corner(3) })
+	eventChips[key] = { tile = tile, label = label, timer = timer, bar = bar }
+	return eventChips[key]
+end
+
+-- grosse bannière quand un event commence
+local eventBanner = Kit.tile({ Name = "EventBanner", Parent = gui, Size = UDim2.fromOffset(560, 110), Position = UDim2.new(0.5, 0, 0, 140), AnchorPoint = Vector2.new(0.5, 0), Palette = "Gold", Border = 4, Radius = 10, Visible = false, ZIndex = 30 })
+Kit.new("UIScale", { Parent = eventBanner })
+local eventBannerIcon = Kit.new("Frame", { Parent = eventBanner, BackgroundTransparency = 1, Size = UDim2.fromOffset(120, 120), Position = UDim2.fromOffset(-20, -14), ZIndex = 33 })
+local eventBannerTitle = Kit.text({ Parent = eventBanner, Text = "", Size = UDim2.new(1, -130, 0, 50), Position = UDim2.fromOffset(110, 10), TextXAlignment = Enum.TextXAlignment.Left, Stroke = 4, ZIndex = 32 })
+local eventBannerSub = Kit.text({ Parent = eventBanner, Text = "", Size = UDim2.new(1, -130, 0, 28), Position = UDim2.fromOffset(110, 64), TextXAlignment = Enum.TextXAlignment.Left, Stroke = 2.5, ZIndex = 32 })
+local lastEvent: string? = nil
+local function showEventBanner(key: string)
+	local event = Config.Events[key]
+	Kit.clear(eventBannerIcon)
+	icon(event.Icon or "crate", { Parent = eventBannerIcon, Size = UDim2.fromScale(1, 1), ZIndex = 33 })
+	Kit.paint(eventBanner, event.Palette or "Gold")
+	eventBannerTitle.Text = event.Name:upper() .. "!"
+	eventBannerSub.Text = event.Description
+	eventBanner.Visible = true
+	Kit.pop(eventBanner)
+	Sounds.play("Event")
+	task.delay(4.5, function()
+		eventBanner.Visible = false
+	end)
+end
+
+-- compte à rebours du refresh des boutiques (seulement les 5 dernières secondes)
+local refreshCountdown = Kit.new("Frame", { Name = "RefreshCountdown", Parent = gui, BackgroundTransparency = 1, Size = UDim2.fromOffset(500, 150), Position = UDim2.fromScale(0.5, 0.3), AnchorPoint = Vector2.new(0.5, 0.5), Visible = false, ZIndex = 40 })
+local refreshNumber = Kit.text({ Parent = refreshCountdown, Text = "5", Size = UDim2.new(1, 0, 0, 100), TextColor3 = C.Yellow, Stroke = 6, ZIndex = 41 })
+Kit.text({ Parent = refreshCountdown, Text = "SHOPS REFRESH! BACK TO YOUR BASE", Size = UDim2.new(1, 0, 0, 34), Position = UDim2.fromOffset(0, 104), Stroke = 3, ZIndex = 41 })
 
 --------------------------------------------------------------------
 -- HUD : gauche (Daily + grille 2x2)
@@ -1171,6 +1269,10 @@ local cashPlus = Kit.button({ Parent = stats, Size = UDim2.fromOffset(42, 42), P
 end)
 local incomeText = Kit.text({ Parent = stats, Text = "+$0/s", Size = UDim2.fromOffset(200, 22), Position = UDim2.fromOffset(4, 144), TextXAlignment = Enum.TextXAlignment.Left, Stroke = 2.5 })
 local friendLabel = Kit.text({ Parent = stats, Text = "Friend Boost: +0%", Size = UDim2.fromOffset(300, 30), Position = UDim2.fromOffset(2, 166), TextXAlignment = Enum.TextXAlignment.Left, Stroke = 3 })
+-- réserve (visible seulement quand elle contient des cartes)
+local storageBtn, _, storageLabel = Kit.button({ Parent = stats, Size = UDim2.fromOffset(150, 36), Position = UDim2.fromOffset(110, 4), Palette = "Orange", Text = "STORAGE", TextStroke = 2.5, Visible = false }, function()
+	togglePanel("Storage")
+end)
 
 local function placeCashPlus()
 	-- le "+" suit la longueur du montant
@@ -1216,7 +1318,7 @@ local luckChip = chip(3, "clover", Color3.fromRGB(255, 120, 200))
 local carry = Kit.tile({ Name = "Carry", Parent = gui, Size = UDim2.fromOffset(470, 62), Position = UDim2.new(0.5, 0, 1, -146), AnchorPoint = Vector2.new(0.5, 1), Palette = "Red", Border = 4 })
 carry.Visible = false
 Kit.new("UIScale", { Parent = carry })
-Kit.text({ Parent = carry, Text = "RUN BACK TO YOUR BASE!", Size = UDim2.new(1, -24, 1, -14), Position = UDim2.fromScale(0.5, 0.5), AnchorPoint = Vector2.new(0.5, 0.5), Stroke = 3.5 })
+local carryText = Kit.text({ Parent = carry, Text = "RUN BACK TO YOUR BASE!", Size = UDim2.new(1, -24, 1, -14), Position = UDim2.fromScale(0.5, 0.5), AnchorPoint = Vector2.new(0.5, 0.5), Stroke = 3.5 })
 
 --------------------------------------------------------------------
 -- Bannière de zone (quand on entre dans une boutique)
@@ -1233,6 +1335,11 @@ local toastHolder = Kit.new("Frame", { Name = "Toasts", Parent = gui, Background
 list(toastHolder, 6, false, Enum.HorizontalAlignment.Center).VerticalAlignment = Enum.VerticalAlignment.Bottom
 local toastCount = 0
 Remotes.Notify.OnClientEvent:Connect(function(text: string, kind: string)
+	if kind == "error" then
+		Sounds.play("Error", 0.8)
+	elseif kind == "reward" then
+		Sounds.play("Upgrade")
+	end
 	toastCount += 1
 	local color = (kind == "error" and Color3.fromRGB(255, 90, 90)) or (kind == "reward" and C.Money) or (kind == "cash" and C.Yellow) or C.White
 	local toast = Kit.well({ Parent = toastHolder, Size = UDim2.fromOffset(440, 40), Color = Color3.fromRGB(16, 18, 28), Transparency = 0.2, LayoutOrder = toastCount })
@@ -1291,10 +1398,15 @@ Remotes.Reveal.OnClientEvent:Connect(function(info)
 	Kit.clear(revealArt)
 	CardArt.build(revealArt, info.Id, info.F, { grade = info.G, zIndex = 2, strokeThickness = 6 })
 	local gradeName = Cards.GradeNames[info.G]
-	revealGrade.Text = ("GRADE %d  ·  %s"):format(info.G, gradeName:upper())
+	Sounds.play("Reveal", info.G >= 9 and 1.2 or 1)
+	if info.Before then
+		revealGrade.Text = ("GRADE %d > %d  ·  %s"):format(info.Before, info.G, gradeName:upper())
+	else
+		revealGrade.Text = ("GRADE %d  ·  %s"):format(info.G, gradeName:upper())
+	end
 	revealGrade.TextColor3 = info.G >= 9 and C.Yellow or (info.G >= 7 and C.Money or C.White)
 	Kit.paint(reveal, info.G >= 10 and "Rainbow" or (info.G >= 9 and "Gold" or "Dark"))
-	revealSub.Text = "+" .. Format.cash(Cards.IncomeOf(info.Id, info.F, info.G) * (state and state.CashMultiplier or 1)) .. "/s in your base"
+	revealSub.Text = Format.cash(Cards.IncomeOf(info.Id, info.F, info.G) * (state and state.CashMultiplier or 1)) .. "/s once placed in your base"
 	reveal.Visible = true
 	reveal.Rotation = 0
 	Kit.pop(reveal)
@@ -1349,8 +1461,53 @@ player:GetAttributeChangedSignal("Carrying"):Connect(function()
 	local id = player:GetAttribute("Carrying")
 	carry.Visible = id ~= nil
 	if id then
+		local fromBase = player:GetAttribute("CarryFromBase")
+		-- carte volée : il faut courir ; carte de sa base : on la grade ou on la pose
+		carryText.Text = fromBase and "GRADE IT AT THE LAB OR PLACE IT ON A CASE" or "RUN BACK TO YOUR BASE!"
+		Kit.paint(carry, fromBase and "Blue" or "Red")
 		Kit.pop(carry)
+		if not fromBase then
+			Sounds.play("Steal")
+		end
 	end
+end)
+
+-- pièces qui volent vers le compteur quand on ramasse son argent
+Remotes.CashFx.OnClientEvent:Connect(function(amount: number)
+	Sounds.play("Cash")
+	local target = cashText.AbsolutePosition
+	for i = 1, 12 do
+		local coin = Kit.new("Frame", {
+			Parent = gui,
+			BackgroundColor3 = Color3.fromRGB(255, 205, 50),
+			Size = UDim2.fromOffset(26, 26),
+			Position = UDim2.new(0.5, math.random(-120, 120), 0.62, math.random(-60, 60)),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			ZIndex = 60,
+		}, { Kit.corner(13), Kit.stroke(3, Color3.fromRGB(150, 90, 0)) })
+		Kit.text({ Parent = coin, Text = "$", Size = UDim2.fromScale(0.9, 0.9), Position = UDim2.fromScale(0.05, 0.05), TextColor3 = Color3.fromRGB(150, 90, 0), Stroke = false, ZIndex = 61 })
+		task.delay(i * 0.03, function()
+			local tween = TweenService:Create(coin, TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+				Position = UDim2.fromOffset(target.X + 60, target.Y + 20),
+				Size = UDim2.fromOffset(14, 14),
+			})
+			tween:Play()
+			tween.Completed:Connect(function()
+				coin:Destroy()
+			end)
+		end)
+	end
+	-- le compteur grossit un instant, et "+$X" s'envole
+	local punch = cashText:FindFirstChildOfClass("UIScale") or Kit.new("UIScale", { Parent = cashText })
+	task.delay(0.55, function()
+		punch.Scale = 1.25
+		TweenService:Create(punch, TweenInfo.new(0.3, Enum.EasingStyle.Back), { Scale = 1 }):Play()
+	end)
+	local gain = Kit.text({ Parent = stats, Text = "+" .. Format.cash(amount), Size = UDim2.fromOffset(260, 40), Position = UDim2.fromOffset(0, 60), TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C.Money, Stroke = 3.5, ZIndex = 20 })
+	TweenService:Create(gain, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = UDim2.fromOffset(0, 10), TextTransparency = 1 }):Play()
+	task.delay(1.25, function()
+		gain:Destroy()
+	end)
 end)
 
 local function render()
@@ -1364,6 +1521,8 @@ local function render()
 	speedChip.Text = mult(state.SpeedMultiplier)
 	luckChip.Text = state.Passes.Lucky and "X2" or "N/A"
 	adminBtn.Visible = state.IsAdmin
+	storageBtn.Visible = #state.Storage > 0
+	storageLabel.Text = ("STORAGE  %d"):format(#state.Storage)
 	rebirthBadge.Visible = (player:GetAttribute("Cash") or 0) >= state.RebirthCost
 	starterOffer.Visible = not state.StarterBought
 	moneyOffer.Visible = not state.Passes.DoubleCash
@@ -1388,15 +1547,16 @@ Remotes.EventState.OnClientEvent:Connect(function(e)
 	eventState = e
 end)
 send("Sync")
+Sounds.startMusic()
 
 -- comptoir du labo
 ProximityPromptService.PromptTriggered:Connect(function(prompt)
-	if prompt.Name == "LabPrompt" then
-		showPanel("Lab")
-	elseif prompt.Name == "StandUpgrades" then
+	if prompt.Name == "StandUpgrades" then
 		showPanel("Upgrades")
-	elseif prompt.Name == "StandSell" then
-		showPanel("Sell")
+	elseif prompt.Name == "StandGrading" then
+		showPanel("Grading")
+	elseif prompt.Name == "StandPacks" then
+		showPanel("Packs")
 	end
 end)
 
@@ -1448,38 +1608,58 @@ task.spawn(function()
 		end
 
 		local now = workspace:GetServerTimeNow()
-		local parts = {}
-		local frozen = eventState.FrozenUntil and eventState.FrozenUntil > now
-		if frozen then
-			table.insert(parts, "GUARDS FROZEN " .. Format.time(eventState.FrozenUntil - now))
+		local active = {}
+		local function chipFor(key: string, name: string, iconKind: string, palette: string, left: number, total: number)
+			local c = eventChip(key, name, iconKind, palette)
+			c.timer.Text = Format.time(left)
+			c.bar.Size = UDim2.fromScale(math.clamp(left / math.max(total, 1), 0, 1), 1)
+			active[key] = true
+		end
+		if eventState.FrozenUntil and eventState.FrozenUntil > now then
+			chipFor("frozen", "Guards frozen", "snowflake", "Cyan", eventState.FrozenUntil - now, Config.FreezeDuration)
 		end
 		if eventState.Event and eventState.EndsAt and eventState.EndsAt > now then
-			table.insert(parts, ("%s  %s"):format(Config.Events[eventState.Event].Name, Format.time(eventState.EndsAt - now)))
+			local event = Config.Events[eventState.Event]
+			chipFor("event", event.Name, event.Icon or "crate", event.Palette or "Gold", eventState.EndsAt - now, Config.EventDuration)
+			if lastEvent ~= eventState.Event then
+				lastEvent = eventState.Event
+				showEventBanner(eventState.Event)
+			end
+		else
+			lastEvent = nil
 		end
 		if eventState.LuckUntil and eventState.LuckUntil > now then
-			table.insert(parts, ("LUCK x%d  %s"):format(Config.ServerLuckMultiplier, Format.time(eventState.LuckUntil - now)))
+			chipFor("luck", ("Server luck x%d"):format(Config.ServerLuckMultiplier), "clover", "Green", eventState.LuckUntil - now, Config.ServerLuckDuration)
 		end
-		eventPill.Visible = #parts > 0
-		eventText.Text = table.concat(parts, "   ·   ")
+		local boostUntil = player:GetAttribute("CashBoostUntil")
+		if boostUntil and boostUntil > os.time() then
+			chipFor("boost", ("+%d%% cash"):format(Config.PackCashBoost * 100), "cash", "Lime", boostUntil - os.time(), Config.PackCashBoostTime)
+		end
+		for key, c in eventChips do
+			c.tile.Visible = active[key] == true
+		end
+		-- refresh des boutiques : petit minuteur, gros chiffres les 5 dernières secondes
+		local refreshAt = workspace:GetAttribute("MapRefreshAt")
+		local refreshLeft = refreshAt and (refreshAt - now) or 999
+		local inShops = root ~= nil and root.Position.Z >= 0
+		refreshCountdown.Visible = inShops and refreshLeft > 0 and refreshLeft <= Config.MapRefreshCountdown
+		if refreshCountdown.Visible then
+			refreshNumber.Text = tostring(math.ceil(refreshLeft))
+		end
 		if eventState.NextEvent and eventState.NextAt and eventState.NextAt > now and eventState.NextAt - now < 86400 then
 			local name = Config.Events[eventState.NextEvent].Name
-			forecastText.Text = ("Next: %s in %s"):format(name:sub(1, 1) .. name:sub(2):lower(), Format.time(eventState.NextAt - now))
+			forecastText.Text = ("Next: %s in %s"):format(name, Format.time(eventState.NextAt - now))
 		else
 			forecastText.Text = ""
 		end
+		if refreshAt then
+			forecastText.Text = ("Shops refresh in %s"):format(Format.time(math.max(0, refreshLeft))) .. (forecastText.Text ~= "" and ("\n" .. forecastText.Text) or "")
+		end
 
 		if state then
-			local ready = 0
-			for _, entry in state.Grading do
-				if entry.Ends <= serverNow() then
-					ready += 1
-				end
-			end
-			baseBadge.Visible = ready > 0
+			baseBadge.Visible = false
 			dailyBadge.Visible = state.DailyReady or dailyLeft() <= 0
-			if openPanel == "Lab" then
-				tickLab()
-			elseif openPanel == "Daily" or openPanel == "Rebirth" then
+			if openPanel == "Daily" or openPanel == "Rebirth" or openPanel == "Packs" or openPanel == "Grading" then
 				refreshers[openPanel]()
 			end
 		end

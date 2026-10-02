@@ -1,8 +1,9 @@
 --[[
-	Grading Lab. Une carte volée arrive "brute" : il faut la faire grader
-	avant de pouvoir l'exposer. La gradation prend du temps (selon la rareté)
-	et continue même quand le joueur est déconnecté. À la fin, on tire la note
-	de condition (1 à 10) qui multiplie le revenu de la carte.
+	Stand GRADING LAB (au bout de la rue des bases).
+	On apporte une carte dans ses mains (ramassée sur un support), on paie,
+	la note (1 à 10) tombe tout de suite. Le prix dépend du revenu de la carte
+	(Config.GradeCost). Une carte déjà notée peut être regradée : la nouvelle note
+	remplace l'ancienne, c'est un pari.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -17,166 +18,42 @@ local Hub = require(script.Parent.Parent.Hub)
 
 local GradingService = {}
 
-local notified: { [Player]: { [number]: boolean } } = {}
-
-function GradingService.SlotCount(player: Player): number
-	local data = DataService.Get(player)
-	local n = Config.GradingSlots + (data and data.Rebirths or 0) * Config.GradingSlotsPerRebirth
-	if MonetizationService.Owns(player, "MoreGrading") then
-		n += 2
-	end
-	return math.min(n, 10)
+function GradingService.Cost(player: Player, id: string, finish: string?): number
+	-- prix calculé sur le revenu de la carte sans note
+	return Config.GradeCost(Cards.IncomeOf(id, finish, nil), MonetizationService.Owns(player, "CheapGrading"))
 end
 
-function GradingService.Duration(player: Player, id: string): number
-	local t = Cards.Rarities[Cards.ById[id].Rarity].GradeTime
-	if MonetizationService.Owns(player, "FastGrading") then
-		t /= 2
-	end
-	return math.max(1, math.floor(t))
-end
-
-local function startNext(player: Player)
-	local data = DataService.Get(player)
-	if not data then
-		return
-	end
-	while #data.Grading < GradingService.SlotCount(player) and #data.Raw > 0 do
-		local raw = table.remove(data.Raw, 1)
-		table.insert(data.Grading, { Id = raw.Id, F = raw.F, Ends = os.time() + GradingService.Duration(player, raw.Id) })
-	end
-end
-
--- Une carte brute arrive au hub (vol réussi, pack...)
+-- Garde l'ancien nom : donner une carte = la poser dans la base
 function GradingService.Deliver(player: Player, id: string, finish: string)
-	local data = DataService.Get(player)
-	if not data then
-		return
-	end
-	data.Index[id] = true
-	if #data.Grading < GradingService.SlotCount(player) then
-		table.insert(data.Grading, { Id = id, F = finish, Ends = os.time() + GradingService.Duration(player, id) })
-		Remotes.Notify:FireClient(player, Cards.DisplayName(id, finish) .. " sent to the Grading Lab", "info")
-	elseif #data.Raw < Config.MaxRawCards then
-		table.insert(data.Raw, { Id = id, F = finish })
-		Remotes.Notify:FireClient(player, "Lab busy: " .. Cards.Name(id) .. " is waiting in line", "info")
-	else
-		local value = Cards.RawSellValue(id, finish)
-		data.Cash += value
-		player:SetAttribute("Cash", data.Cash)
-		Remotes.Notify:FireClient(player, ("Lab full! %s sold for %s"):format(Cards.Name(id), Format.cash(value)), "error")
-	end
-	Hub.Players.SendState(player)
+	return Hub.Gallery.Give(player, id, finish, nil)
 end
 
--- Récupère une carte gradée et la met en vitrine
-function GradingService.Collect(player: Player, index: number): boolean
+function GradingService.GradeHeld(player: Player): boolean
 	local data = DataService.Get(player)
-	local entry = data and data.Grading[index]
-	if not entry or entry.Ends > os.time() then
+	local held = Hub.Zones.GetCarry(player)
+	if not data or not held then
+		Remotes.Notify:FireClient(player, "Pick up a card from your base first", "error")
 		return false
 	end
-	if not Hub.Gallery.FreeCase(player) then
-		Remotes.Notify:FireClient(player, "Your gallery is full! Sell a card or unlock a case.", "error")
+	local cost = GradingService.Cost(player, held.Id, held.F)
+	if data.Cash < cost then
+		Remotes.Notify:FireClient(player, "Grading costs " .. Format.cash(cost), "error")
 		return false
 	end
-	local grade = Hub.Loot.RollGrade(MonetizationService.Owns(player, "Lucky"))
-	table.remove(data.Grading, index)
-	Hub.Gallery.AddCard(player, { Id = entry.Id, F = entry.F, G = grade })
-	Remotes.Reveal:FireClient(player, { Id = entry.Id, F = entry.F, G = grade })
-	Hub.Players.OnCardGained(player, entry.Id, entry.F, grade)
-	startNext(player)
-	notified[player] = nil
-	return true
-end
-
-function GradingService.CollectAll(player: Player)
-	local data = DataService.Get(player)
-	if not data then
-		return
-	end
-	local i = 1
-	while i <= #data.Grading do
-		local entry = data.Grading[i]
-		if entry.Ends <= os.time() then
-			if not GradingService.Collect(player, i) then
-				break
-			end
-		else
-			i += 1
-		end
-	end
-	Hub.Players.SendState(player)
-end
-
--- Lance la gradation d'une carte en attente (si un slot est libre)
-function GradingService.StartRaw(player: Player, index: number)
-	local data = DataService.Get(player)
-	if not data or not data.Raw[index] then
-		return
-	end
-	if #data.Grading >= GradingService.SlotCount(player) then
-		Remotes.Notify:FireClient(player, "All grading slots are busy", "error")
-		return
-	end
-	local raw = table.remove(data.Raw, index)
-	table.insert(data.Grading, { Id = raw.Id, F = raw.F, Ends = os.time() + GradingService.Duration(player, raw.Id) })
-	Hub.Players.SendState(player)
-end
-
-function GradingService.SellRaw(player: Player, index: number)
-	local data = DataService.Get(player)
-	local raw = data and data.Raw[index]
-	if not raw then
-		return
-	end
-	table.remove(data.Raw, index)
-	local value = Cards.RawSellValue(raw.Id, raw.F)
-	data.Cash += value
+	data.Cash -= cost
 	player:SetAttribute("Cash", data.Cash)
-	Remotes.Notify:FireClient(player, ("Sold raw %s for %s"):format(Cards.Name(raw.Id), Format.cash(value)), "cash")
-	Hub.Players.SendState(player)
-end
-
--- Produit Robux "Grade All Now"
-function GradingService.FinishAll(player: Player): boolean
-	local data = DataService.Get(player)
-	if not data then
-		return false
-	end
-	startNext(player)
-	for _, entry in data.Grading do
-		entry.Ends = os.time()
+	local grade = Hub.Loot.RollGrade(MonetizationService.Owns(player, "Lucky"))
+	local before = held.G
+	Hub.Zones.SetCarry(player, { Id = held.Id, F = held.F, G = grade, Zone = held.Zone })
+	Remotes.Reveal:FireClient(player, { Id = held.Id, F = held.F, G = grade, Before = before })
+	if grade == 10 then
+		Hub.Players.Badge(player, "GemMint")
+		Remotes.Announce:FireAllClients("GEM MINT 10!", player.DisplayName .. " graded " .. Cards.DisplayName(held.Id, held.F), "Legendary")
 	end
 	Hub.Players.SendState(player)
 	return true
 end
 
-function GradingService.Start()
-	-- prévient le joueur quand une carte est prête
-	task.spawn(function()
-		while true do
-			task.wait(1)
-			for _, player in game:GetService("Players"):GetPlayers() do
-				local data = DataService.Get(player)
-				if data then
-					startNext(player)
-					local seen = notified[player] or {}
-					notified[player] = seen
-					for i, entry in data.Grading do
-						if entry.Ends <= os.time() and not seen[i] then
-							seen[i] = true
-							Remotes.Notify:FireClient(player, Cards.Name(entry.Id) .. " is graded! Collect it at the lab", "reward")
-							Hub.Players.SendState(player)
-						end
-					end
-				end
-			end
-		end
-	end)
-	game:GetService("Players").PlayerRemoving:Connect(function(player)
-		notified[player] = nil
-	end)
-end
+function GradingService.Start() end
 
 return GradingService
