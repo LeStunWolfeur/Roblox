@@ -50,13 +50,13 @@ Config.TreadmillTiers = {
 	{ From = 26, Name = "Quantum", Color = Color3.fromRGB(255, 60, 120) },
 }
 function Config.TreadmillTier(level: number)
-	local tier = Config.TreadmillTiers[1]
-	for _, t in Config.TreadmillTiers do
+	local tier, index = Config.TreadmillTiers[1], 1
+	for i, t in Config.TreadmillTiers do
 		if level >= t.From then
-			tier = t
+			tier, index = t, i
 		end
 	end
-	return tier
+	return tier, index
 end
 
 --------------------------------------------------------------------
@@ -139,6 +139,8 @@ Config.GuardianCatchRadius = 4.5
 Config.GuardianRampPerStud = 0.0025
 Config.GuardianRampMax = 0.25
 Config.FreezeDuration = 30
+-- les cartes rares sont mieux gardées : bonus de vitesse du gardien selon la rareté volée
+Config.RarityGuardBonus = { Epic = 0.04, Legendary = 0.08, Mythic = 0.12, Secret = 0.16 }
 Config.DropLifetime = 25 -- une carte tombée reste au sol tant de secondes
 
 --------------------------------------------------------------------
@@ -204,10 +206,19 @@ Config.ServerLuckDuration = 900
 Config.ServerLuckMultiplier = 2
 
 --------------------------------------------------------------------
--- RÉCOMPENSE QUOTIDIENNE (minutes de revenu, avec un minimum)
+-- RÉCOMPENSES QUOTIDIENNES (cycle de 7 jours)
+-- Cash / Speed : minutes de revenu ou de tapis, avec un minimum.
+-- Card : une carte brute de cette rareté envoyée au labo.
 --------------------------------------------------------------------
-Config.DailyMinutes = { 2, 3, 4, 5, 6, 8, 12 }
-Config.DailyMinimum = { 300, 500, 800, 1200, 2000, 3500, 6000 }
+Config.DailyRewards = {
+	{ Kind = "Cash", Minutes = 3, Minimum = 500, Name = "Cash Bag", Icon = "cash" },
+	{ Kind = "Speed", Minutes = 5, Minimum = 300, Name = "Speed Boost", Icon = "bolt" },
+	{ Kind = "Card", Rarity = "Rare", Name = "Rare Pack", Icon = "cardpack" },
+	{ Kind = "Cash", Minutes = 10, Minimum = 2500, Name = "Cash Pile", Icon = "cashpile" },
+	{ Kind = "Card", Rarity = "Epic", Name = "Epic Pack", Icon = "cardpack" },
+	{ Kind = "Speed", Minutes = 20, Minimum = 3000, Name = "Mega Speed", Icon = "bolt" },
+	{ Kind = "Card", Rarity = "Legendary", Minutes = 15, Minimum = 10000, Name = "Legend Box", Icon = "gift" },
+}
 Config.DailyCooldown = 20 * 3600
 Config.DailyStreakBreak = 48 * 3600
 
@@ -221,10 +232,9 @@ Config.GamePasses = {
 	DoubleSpeed = { Id = 0, Name = "2x Training", Description = "Double Speed from every treadmill.", Color = Color3.fromRGB(255, 130, 60) },
 	AutoCollect = { Id = 0, Name = "Auto Collect", Description = "Gallery cash goes straight to your wallet.", Color = Color3.fromRGB(0, 220, 220) },
 	MoreGrading = { Id = 0, Name = "+2 Grading Slots", Description = "Grade two more cards at the same time.", Color = Color3.fromRGB(190, 120, 255) },
-	AutoTrain = { Id = 0, Name = "Auto Train", Description = "Train on treadmills without holding any key. AFK friendly.", Color = Color3.fromRGB(255, 70, 110) },
-	Lucky = { Id = 0, Name = "Lucky Grader", Description = "Better grades: best of two rolls.", Color = Color3.fromRGB(255, 90, 150) },
+	Lucky = { Id = 0, Name = "x2 Luck", Description = "Better grades on every card: best of two rolls.", Color = Color3.fromRGB(255, 90, 150) },
 }
-Config.GamePassOrder = { "VIP", "DoubleCash", "DoubleSpeed", "AutoTrain", "FastGrading", "MoreGrading", "AutoCollect", "Lucky" }
+Config.GamePassOrder = { "VIP", "DoubleCash", "DoubleSpeed", "FastGrading", "MoreGrading", "AutoCollect", "Lucky" }
 Config.VipCashMultiplier = 1.5
 
 --------------------------------------------------------------------
@@ -233,6 +243,8 @@ Config.VipCashMultiplier = 1.5
 Config.Products = {
 	SpeedSmall = { Id = 0, Kind = "Speed", Minutes = 10, Minimum = 1000, Name = "Speed Boost", Description = "10 minutes of training on your treadmill." },
 	SpeedBig = { Id = 0, Kind = "Speed", Minutes = 60, Minimum = 8000, Name = "Speed Mega Boost", Description = "1 hour of training on your treadmill." },
+	StarterPack = { Id = 0, Kind = "Starter", Name = "Starter Pack", Description = "1 Legendary+ card, 15 min of cash and 15 min of Speed." },
+	RebirthSkip = { Id = 0, Kind = "RebirthSkip", Name = "Skip Rebirth", Description = "+1 rebirth and keep everything." },
 	TreadmillUpgrade = { Id = 0, Kind = "Treadmill", Name = "Treadmill +1 Level", Description = "Upgrade your treadmill one level right now." },
 	FreezeGuards = { Id = 0, Kind = "Freeze", Name = "Freeze Guards", Description = "Every guardian is frozen for 30 seconds. Go!" },
 	InstantGrade = { Id = 0, Kind = "InstantGrade", Name = "Grade All Now", Description = "Finish every card in the lab instantly." },
@@ -242,6 +254,7 @@ Config.Products = {
 	CashBig = { Id = 0, Kind = "Cash", Minutes = 60, Minimum = 15000, Name = "Cash Vault", Description = "1 hour of your income." },
 }
 Config.ProductOrder = { "FreezeGuards", "TreadmillUpgrade", "SpeedSmall", "SpeedBig", "InstantGrade", "ServerLuck", "MysteryPack", "CashSmall", "CashBig" }
+Config.StarterWeights = { Legendary = 85, Mythic = 14, Secret = 1 }
 Config.PackWeights = { Epic = 70, Legendary = 25, Mythic = 4.6, Secret = 0.4 }
 
 --------------------------------------------------------------------

@@ -90,9 +90,19 @@ local function dailyStatus(data)
 	return elapsed >= Config.DailyCooldown, math.max(0, Config.DailyCooldown - elapsed), streak + 1
 end
 
-local function dailyReward(player: Player, day: number): number
-	local i = math.min(day, #Config.DailyMinutes)
-	return math.max(Config.DailyMinimum[i], math.floor(Hub.Gallery.Income(player) * 60 * Config.DailyMinutes[i]))
+-- position dans le cycle de 7 jours
+local function dailySlot(day: number): number
+	return (day - 1) % #Config.DailyRewards + 1
+end
+
+-- montant cash ou speed d'une récompense (0 si c'est juste une carte)
+local function dailyAmount(player: Player, slot: number): number
+	local r = Config.DailyRewards[slot]
+	if not r.Minutes then
+		return 0
+	end
+	local perSecond = r.Kind == "Speed" and Hub.Training.BestRate(player) or Hub.Gallery.Income(player)
+	return math.max(r.Minimum, math.floor(perSecond * 60 * r.Minutes))
 end
 
 --------------------------------------------------------------------
@@ -137,7 +147,15 @@ function PlayerService.SendState(player: Player)
 		DailyReady = ready,
 		DailyWait = wait,
 		DailyDay = day,
-		DailyReward = dailyReward(player, day),
+		DailySlot = dailySlot(day),
+		DailyAmounts = (function()
+			local list = {}
+			for i in Config.DailyRewards do
+				list[i] = dailyAmount(player, i)
+			end
+			return list
+		end)(),
+		StarterBought = data.StarterBought == true,
 		IsAdmin = isAdmin(player),
 		FriendBoost = PlayerService.FriendBoost(player),
 		IndexBonus = indexCount(data) * Config.IndexBonusPerCard,
@@ -290,12 +308,25 @@ function actions.ClaimDaily(player: Player)
 		notify(player, "Daily reward not ready yet", "error")
 		return
 	end
-	local amount = dailyReward(player, day)
+	local slot = dailySlot(day)
+	local reward = Config.DailyRewards[slot]
+	local amount = dailyAmount(player, slot)
 	data.DailyStreak = day
 	data.LastDaily = os.time()
-	data.Cash += amount
-	player:SetAttribute("Cash", data.Cash)
-	notify(player, ("Day %d: +%s"):format(day, Format.cash(amount)), "cash")
+	local got = {}
+	if reward.Kind == "Speed" then
+		Hub.Training.AddSpeed(player, amount)
+		table.insert(got, "+" .. Format.short(amount) .. " Speed")
+	elseif amount > 0 then
+		data.Cash += amount
+		player:SetAttribute("Cash", data.Cash)
+		table.insert(got, "+" .. Format.cash(amount))
+	end
+	if reward.Rarity then
+		Hub.Grading.Deliver(player, Hub.Loot.RollCard(reward.Rarity), Hub.Loot.RollFinish())
+		table.insert(got, "a " .. reward.Rarity .. " card in your lab")
+	end
+	notify(player, ("Day %d: %s"):format(slot, table.concat(got, " and ")), "reward")
 	PlayerService.SendState(player)
 end
 
@@ -307,6 +338,11 @@ end
 
 function actions.BuyProduct(player: Player, key: any)
 	if type(key) == "string" and Config.Products[key] then
+		local data = DataService.Get(player)
+		if key == "StarterPack" and data and data.StarterBought then
+			notify(player, "You already got the Starter Pack!", "error")
+			return
+		end
 		MonetizationService.PromptProduct(player, key)
 	end
 end
@@ -362,6 +398,34 @@ local function handleTreadmill(player: Player): boolean
 		return true
 	end
 	return Hub.Training.Upgrade(player, true)
+end
+
+local function handleStarter(player: Player): boolean
+	local data = DataService.Get(player)
+	if not data then
+		return false
+	end
+	local rarity = Hub.Loot.RollRarity(Config.StarterWeights, 1)
+	Hub.Grading.Deliver(player, Hub.Loot.RollCard(rarity), Hub.Loot.RollFinish())
+	local cash = math.max(5000, math.floor(Hub.Gallery.Income(player) * 60 * 15))
+	data.Cash += cash
+	player:SetAttribute("Cash", data.Cash)
+	Hub.Training.AddSpeed(player, math.max(2000, math.floor(Hub.Training.BestRate(player) * 60 * 15)))
+	data.StarterBought = true
+	notify(player, "Starter Pack opened! Check your grading lab.", "reward")
+	PlayerService.SendState(player)
+	return true
+end
+
+local function handleRebirthSkip(player: Player): boolean
+	local data = DataService.Get(player)
+	if not data then
+		return false
+	end
+	data.Rebirths += 1
+	Remotes.Announce:FireAllClients("REBIRTH " .. data.Rebirths, player.DisplayName .. " skipped to a new rebirth!", "rebirth")
+	PlayerService.SendState(player)
+	return true
 end
 
 local function handleFreeze(player: Player): boolean
@@ -510,6 +574,8 @@ end
 function PlayerService.Start()
 	MonetizationService.RegisterHandler("Speed", handleSpeed)
 	MonetizationService.RegisterHandler("Treadmill", handleTreadmill)
+	MonetizationService.RegisterHandler("Starter", handleStarter)
+	MonetizationService.RegisterHandler("RebirthSkip", handleRebirthSkip)
 	MonetizationService.RegisterHandler("InstantGrade", handleInstantGrade)
 	MonetizationService.RegisterHandler("ServerLuck", handleServerLuck)
 	MonetizationService.RegisterHandler("Freeze", handleFreeze)

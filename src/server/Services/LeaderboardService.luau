@@ -61,7 +61,7 @@ local function buildBoardGui(board: BasePart, title: string)
 		row.BackgroundColor3 = Color3.new(1, 1, 1)
 		row.BorderSizePixel = 0
 		row.Size = UDim2.fromScale(1, 0.09)
-		row.Font = Enum.Font.GothamBold
+		row.Font = Enum.Font.FredokaOne
 		row.TextScaled = true
 		row.TextXAlignment = Enum.TextXAlignment.Left
 		row.TextColor3 = i == 1 and Color3.fromRGB(255, 210, 60)

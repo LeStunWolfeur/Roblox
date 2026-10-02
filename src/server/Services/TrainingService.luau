@@ -1,8 +1,7 @@
 --[[
 	Tapis de course de la base.
 	- Chaque base a son tapis devant l'entrée. Seul le propriétaire peut l'utiliser.
-	- E pour monter dessus, puis rester appuyé (Espace, W, clic, bouton RUN) pour courir.
-	- Le pass Auto Train fait courir sans appuyer.
+	- E pour monter dessus : le personnage court tout seul, plus vite selon le niveau.
 	- Le tapis s'améliore par niveaux (cash ou Robux) : plus de Speed par seconde,
 	  et son look change (couleur, cristaux) tous les 5 niveaux.
 ]]
@@ -57,13 +56,10 @@ end
 function TrainingService.Render(base, player: Player?)
 	local t = base.Treadmill
 	local level = player and TrainingService.Level(player) or 1
-	local tier = Config.TreadmillTier(level)
-	for _, p in t.Frames do
-		if p.Name == "Crystal" then
-			p.Transparency = level >= 16 and 0.15 or 1
-			p.Color = tier.Color
-		elseif p.Name == "Side" then
-			p.Color = tier.Color
+	local tier, tierIndex = Config.TreadmillTier(level)
+	for n, parts in t.Tiers do
+		for _, p in parts do
+			p.Transparency = (n == tierIndex) and (p:GetAttribute("BaseT") or 0) or 1
 		end
 	end
 	t.Glow.Color = tier.Color
@@ -158,7 +154,8 @@ function TrainingService.Start(builtBases)
 				local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 				if not player.Parent or not root or not humanoid or humanoid.Health <= 0 or (root.Position - base.Treadmill.Spot.Position).Magnitude > 6 then
 					TrainingService.Stop(player)
-				elseif holding[player] or MonetizationService.Owns(player, "AutoTrain") then
+				else
+					-- on court tout seul dès qu'on est sur le tapis
 					TrainingService.AddSpeed(player, TrainingService.BestRate(player) * dt)
 				end
 			end

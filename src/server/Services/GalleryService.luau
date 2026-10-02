@@ -13,6 +13,8 @@ local DataService = require(script.Parent.DataService)
 local MonetizationService = require(script.Parent.MonetizationService)
 local Hub = require(script.Parent.Parent.Hub)
 local Showcase = require(script.Parent.Parent.World.Showcase)
+local Entity = require(ReplicatedStorage.Shared.Entity)
+local Nameplate = require(ReplicatedStorage.Shared.Nameplate)
 
 local GalleryService = {}
 
@@ -123,17 +125,26 @@ local function renderCase(gallery, index: number)
 		case.Label.TextColor3 = Color3.fromRGB(150, 150, 165)
 		return
 	end
+	local display = Instance.new("Model")
+	display.Name = "Display"
+	local entity = Entity.build(c.Id, c.F)
+	local facing = case.CardCFrame - case.CardCFrame.Position
+	Entity.place(entity, CFrame.new(case.Show.Top.Position + Vector3.new(0, 0.2, 0)) * facing, 0.85)
+	entity.Parent = display
 	local part = CardArt.part(c.Id, c.F, c.G, false)
-	part.CFrame = case.CardCFrame
-	part.Parent = gallery.Folder
+	part.Size = Vector3.new(2.2, 3.08, 0.12)
+	part.CFrame = CFrame.new(case.Show.Top.Position + Vector3.new(0, 8.6, 0)) * facing
+	part.Parent = display
 	CollectionService:AddTag(part, "DisplayCard")
-	s.cardParts[index] = part
+	display.Parent = gallery.Folder
+	Nameplate.attach(entity.PrimaryPart, c.Id, c.F, c.G, Vector3.new(0, 12.5, 0))
+	s.cardParts[index] = display
 	plinth:SetAttribute("CardId", c.Id)
 	plinth:SetAttribute("Finish", c.F)
 	plinth:SetAttribute("Grade", c.G)
 	plinth:SetAttribute("Value", Cards.SellValue(c.Id, c.F, c.G))
 	Showcase.style(case.Show, Cards.ById[c.Id].Rarity)
-	case.Label.Text = "+" .. Format.cash(Cards.IncomeOf(c.Id, c.F, c.G) * Hub.Players.CashMultiplier(owner)) .. "/s"
+	case.Label.Text = ""
 	case.Label.TextColor3 = Color3.fromRGB(80, 230, 140)
 end
 

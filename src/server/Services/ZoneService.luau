@@ -15,12 +15,13 @@ local RunService = game:GetService("RunService")
 local Config = require(ReplicatedStorage.Shared.Config)
 local Cards = require(ReplicatedStorage.Shared.Cards)
 local CardArt = require(ReplicatedStorage.Shared.CardArt)
-local Format = require(ReplicatedStorage.Shared.Format)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local DataService = require(script.Parent.DataService)
 local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
 local GuardModel = require(script.Parent.Parent.World.GuardModel)
 local Showcase = require(script.Parent.Parent.World.Showcase)
+local Entity = require(ReplicatedStorage.Shared.Entity)
+local Nameplate = require(ReplicatedStorage.Shared.Nameplate)
 local Hub = require(script.Parent.Parent.Hub)
 
 local ZoneService = {}
@@ -32,7 +33,6 @@ local carrying: { [Player]: Carry } = {}
 local guardians = {}
 local gateWarning: { [Player]: number } = {}
 
-local INK = Color3.fromRGB(20, 20, 30)
 
 function ZoneService.IsCarrying(player: Player): boolean
 	return carrying[player] ~= nil
@@ -166,23 +166,24 @@ local function restock(zoneIndex: number, pedestal)
 	pedestal.card = { Id = id, F = finish }
 
 	Showcase.style(pedestal.Show, Cards.ById[id].Rarity)
-	local part = CardArt.part(id, finish, nil, false)
-	part.CFrame = pedestal.CardCFrame
-	part.Parent = zones[zoneIndex].Folder
-	CollectionService:AddTag(part, "ShopCard")
-	pedestal.part = part
+	-- la créature de la carte sur le présentoir, la carte qui flotte au-dessus
+	local display = Instance.new("Model")
+	display.Name = "Display"
+	local entity = Entity.build(id, finish)
+	local facing = pedestal.CardCFrame - pedestal.CardCFrame.Position
+	Entity.place(entity, CFrame.new(pedestal.Show.Top.Position + Vector3.new(0, 0.2, 0)) * facing, 0.85)
+	entity.Parent = display
+	local card = CardArt.part(id, finish, nil, false)
+	card.Size = Vector3.new(2.2, 3.08, 0.12)
+	card.CFrame = CFrame.new(pedestal.Show.Top.Position + Vector3.new(0, 8.6, 0)) * facing
+	card.Parent = display
+	CollectionService:AddTag(card, "DisplayCard")
+	display.Parent = zones[zoneIndex].Folder
+	pedestal.part = display
 
 	local r = Cards.Rarities[Cards.ById[id].Rarity]
-	MapBuilder.billboard(part, UDim2.fromOffset(220, 30), Vector3.new(0, 4.4, 0), Cards.DisplayName(id, finish), r.Color, 70)
-	MapBuilder.billboard(
-		part,
-		UDim2.fromOffset(220, 24),
-		Vector3.new(0, 3.3, 0),
-		r.Name:upper() .. "  ·  " .. Format.cash(Cards.IncomeOf(id, finish, 6)) .. "/s",
-		Color3.new(1, 1, 1),
-		70
-	)
-	local prompt = MapBuilder.prompt(part, "Steal", Cards.DisplayName(id, finish), Config.StealHoldTime, 10)
+	Nameplate.attach(entity.PrimaryPart, id, finish, nil, Vector3.new(0, 12.5, 0))
+	local prompt = MapBuilder.prompt(entity.PrimaryPart, "Steal", Cards.DisplayName(id, finish), Config.StealHoldTime, 11)
 	prompt.Triggered:Connect(function(player)
 		ZoneService.TrySteal(player, zoneIndex, pedestal)
 	end)
@@ -283,9 +284,19 @@ local function makeGuardian(zoneIndex: number)
 		return Config.GuardianSpeedFor(zone) * Hub.Events.GuardianSpeedFactor()
 	end
 
+	-- les cartes rares sont mieux gardées : le gardien court plus vite
+	local function rarityBonus(): number
+		local target = g.target
+		local c = target and carrying[target]
+		if not c then
+			return 0
+		end
+		return Config.RarityGuardBonus[Cards.ById[c.Id].Rarity] or 0
+	end
+
 	local function chaseSpeed(): number
 		local ramp = math.min(g.chased * Config.GuardianRampPerStud, Config.GuardianRampMax)
-		return baseSpeed() * (1 + ramp)
+		return baseSpeed() * (1 + ramp + rarityBonus())
 	end
 
 	local function insideShop(pos: Vector3): boolean
@@ -369,7 +380,13 @@ local function makeGuardian(zoneIndex: number)
 					local away = (root.Position - g.position) * Vector3.new(1, 0, 1)
 					away = away.Magnitude > 0 and away.Unit or Vector3.new(0, 0, -1)
 					Remotes.Knockback:FireClient(target, away * 70 + Vector3.new(0, 45, 0))
-					ZoneService.Drop(target, "Caught by " .. zone.Guardian .. "!")
+					-- attrapé par le gardien : la carte retourne à la boutique (elle disparaît)
+					local lostCard = carrying[target]
+					setCarry(target, nil)
+					Remotes.Notify:FireClient(target, zone.Guardian .. " took the card back!", "error")
+					if lostCard then
+						Remotes.Announce:FireClient(target, "CAUGHT!", Cards.DisplayName(lostCard.Id, lostCard.F) .. " went back to the shop", "steal")
+					end
 					giveUp()
 				end
 			end

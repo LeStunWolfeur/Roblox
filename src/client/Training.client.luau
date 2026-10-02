@@ -1,9 +1,8 @@
 --[[
 	Tapis de course côté joueur.
-	Le serveur met l'attribut "Training" quand on monte sur un tapis.
-	- Le personnage est placé sur le tapis et bloqué.
-	- Tant qu'on reste appuyé (Espace, W, flèche haut, clic, gâchette, ou le bouton RUN),
-	  il court (animation de course du personnage) et la Speed monte.
+	Le serveur met l'attribut "Training" quand on monte sur un tapis (touche E).
+	- Le personnage est placé sur le tapis et court tout seul : plus le tapis est
+	  amélioré, plus il court vite et plus la Speed monte.
 	- X, Retour arrière ou le bouton LEAVE pour descendre.
 ]]
 
@@ -16,89 +15,93 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Format = require(ReplicatedStorage.Shared.Format)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Kit = require(script.Parent.UI.Kit)
+local Icons3D = require(script.Parent.UI.Icons3D)
 
-local C = Kit.Colors
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
-local HOLD_KEYS = {
-	[Enum.KeyCode.Space] = true,
-	[Enum.KeyCode.W] = true,
-	[Enum.KeyCode.Up] = true,
-	[Enum.KeyCode.ButtonA] = true,
-	[Enum.KeyCode.ButtonR2] = true,
-}
 local LEAVE_KEYS = { [Enum.KeyCode.X] = true, [Enum.KeyCode.Backspace] = true, [Enum.KeyCode.ButtonB] = true }
 
 local active: number? = nil
-local holdSources: { [any]: boolean } = {}
-local holding = false
 local runTrack: AnimationTrack? = nil
-local passes: { [string]: boolean } = {}
 local rate = 5
 local level = 1
+local cost: number? = nil
 
 --------------------------------------------------------------------
--- Interface d'entraînement
+-- Interface d'entraînement (au-dessus de la barre de vitesse)
 --------------------------------------------------------------------
-local gui = Kit.new("ScreenGui", { Name = "TrainingUI", ResetOnSpawn = false, Enabled = false, Parent = playerGui })
+local gui = Kit.new("ScreenGui", { Name = "TrainingUI", ResetOnSpawn = false, Enabled = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, Parent = playerGui })
 local scale = Kit.new("UIScale", { Parent = gui })
 local function updateScale()
 	local size = workspace.CurrentCamera.ViewportSize
-	scale.Scale = math.clamp(math.min(size.X / 1280, size.Y / 760), 0.55, 1.15)
+	scale.Scale = math.clamp(math.min(size.X / 1280, size.Y / 760), 0.5, 1.2)
 end
 updateScale()
 workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale)
 
-local _, panel = Kit.sticker({
+local panel = Kit.well({
 	Parent = gui,
-	Size = UDim2.fromOffset(460, 150),
-	Position = UDim2.new(0.5, 0, 1, -30),
+	Size = UDim2.fromOffset(560, 150),
+	Position = UDim2.new(0.5, 0, 1, -146),
 	AnchorPoint = Vector2.new(0.5, 1),
-	Color = C.Ink2,
-}, 6)
-local title = Kit.label({ Parent = panel, Size = UDim2.new(1, -24, 0, 34), Position = UDim2.fromOffset(12, 8), Text = "HOLD SPACE TO RUN", ZIndex = 5 })
-Kit.textStroke(3).Parent = title
-local rateLabel = Kit.label({ Parent = panel, Size = UDim2.new(1, -24, 0, 20), Position = UDim2.fromOffset(12, 44), Font = Kit.Body, TextColor3 = C.Green, Text = "", ZIndex = 5 })
-local _, runBtn = Kit.button({
+	Color = Color3.fromRGB(18, 22, 32),
+	Transparency = 0.15,
+	Border = 4,
+	Radius = 8,
+})
+local head = Kit.tile({ Parent = panel, Size = UDim2.new(1, 0, 0, 56), Palette = "Lime", Border = 4, Radius = 8 })
+Icons3D.view("treadmill", { Parent = panel, Size = UDim2.fromOffset(86, 86), Position = UDim2.fromOffset(-24, -30), Rotation = -6, ZIndex = 4 })
+local title = Kit.text({ Parent = head, Text = "TRAINING!", Size = UDim2.new(1, -90, 0, 40), Position = UDim2.fromOffset(70, 8), TextXAlignment = Enum.TextXAlignment.Left, Stroke = 3.5 })
+local rateLabel = Kit.text({ Parent = panel, Text = "", Size = UDim2.new(0.5, -10, 0, 30), Position = UDim2.fromOffset(16, 66), TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = Kit.Colors.Speed, Stroke = 3 })
+local nextLabel = Kit.text({ Parent = panel, Text = "", Size = UDim2.new(0.5, -10, 0, 22), Position = UDim2.fromOffset(16, 100), TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = Color3.fromRGB(210, 215, 230), Stroke = 2.5 })
+local upFace, _, upLabel = Kit.button({
 	Parent = panel,
-	Size = UDim2.fromOffset(250, 58),
-	Position = UDim2.fromOffset(16, 78),
-	Color = C.Green,
-	Text = "HOLD TO RUN",
-	ZIndex = 5,
-}, function() end)
+	Size = UDim2.fromOffset(150, 64),
+	Position = UDim2.new(1, -150, 0, 70),
+	AnchorPoint = Vector2.new(1, 0),
+	Palette = "Green",
+	Text = "UPGRADE",
+	TextSize = UDim2.new(1, -14, 0, 30),
+	TextPosition = UDim2.new(0.5, 0, 0, 20),
+	TextStroke = 3,
+}, function()
+	Remotes.Action:FireServer("UpgradeTreadmill")
+end)
+local costLabel = Kit.text({ Parent = upFace, Text = "", Size = UDim2.new(1, -14, 0, 24), Position = UDim2.new(0.5, 0, 1, -4), AnchorPoint = Vector2.new(0.5, 1), Stroke = 2.5, ZIndex = 3 })
 Kit.button({
 	Parent = panel,
-	Size = UDim2.fromOffset(160, 58),
-	Position = UDim2.new(1, -176, 0, 78),
-	Color = C.Pink,
+	Size = UDim2.fromOffset(120, 64),
+	Position = UDim2.new(1, -16, 0, 70),
+	AnchorPoint = Vector2.new(1, 0),
+	Palette = "Red",
 	Text = "LEAVE (X)",
-	TextColor = C.White,
-	TextStroke = true,
-	ZIndex = 5,
+	TextStroke = 3,
 }, function()
 	Remotes.Action:FireServer("TrainStop")
 end)
-
-local function autoTrain(): boolean
-	return passes.AutoTrain == true
-end
 
 local function refreshUI()
 	if not active then
 		return
 	end
-	local tier = Config.TreadmillTier(level)
-	if autoTrain() then
-		title.Text = "AUTO TRAINING"
+	local tier, tierIndex = Config.TreadmillTier(level)
+	title.Text = ("%s Treadmill  ·  Lv %d"):format(tier.Name, level)
+	Kit.paint(head, ({ "Grey", "Green", "Blue", "Purple", "Yellow", "Pink" })[tierIndex] or "Lime")
+	rateLabel.Text = ("+%s Speed/s"):format(Format.short(rate))
+	local nextTier = Config.TreadmillTiers[tierIndex + 1]
+	nextLabel.Text = nextTier and ("New look at level %d"):format(nextTier.From) or "Best treadmill!"
+	if cost then
+		upLabel.Text = "UPGRADE"
+		costLabel.Text = Format.cash(cost)
+		Kit.paint(upFace, (player:GetAttribute("Cash") or 0) >= cost and "Green" or "Grey")
 	else
-		title.Text = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and "HOLD THE BUTTON TO RUN" or "HOLD SPACE / CLICK TO RUN"
+		upLabel.Text = "MAX"
+		costLabel.Text = ""
+		Kit.paint(upFace, "Grey")
 	end
-	rateLabel.Text = ("%s treadmill · Level %d · +%s Speed/s"):format(tier.Name, level, Format.short(rate))
-	runBtn.Parent.BackgroundColor3 = (holding or autoTrain()) and C.Yellow or C.Green
-	runBtn.Text = (holding or autoTrain()) and "RUNNING!" or "HOLD TO RUN"
 end
+player:GetAttributeChangedSignal("Cash"):Connect(refreshUI)
 
 --------------------------------------------------------------------
 -- Animation de course (on réutilise celle du personnage)
@@ -120,7 +123,7 @@ local function getRunTrack(): AnimationTrack?
 end
 
 local function updateRunning()
-	local running = active ~= nil and (holding or autoTrain())
+	local running = active ~= nil
 	if running then
 		if not runTrack then
 			runTrack = getRunTrack()
@@ -129,7 +132,8 @@ local function updateRunning()
 			runTrack:Play(0.15)
 		end
 		if runTrack then
-			runTrack:AdjustSpeed(1.6)
+			-- plus le tapis est amélioré, plus on court vite
+			runTrack:AdjustSpeed(1.2 + level * 0.06)
 		end
 	elseif runTrack and runTrack.IsPlaying then
 		runTrack:Stop(0.2)
@@ -137,26 +141,6 @@ local function updateRunning()
 	refreshUI()
 end
 
-local function setHolding(value: boolean)
-	if value == holding then
-		return
-	end
-	holding = value
-	if active then
-		Remotes.Action:FireServer("TrainHold", value)
-	end
-	updateRunning()
-end
-
-local function recomputeHold()
-	local any = false
-	for _, v in holdSources do
-		if v then
-			any = true
-		end
-	end
-	setHolding(any)
-end
 
 --------------------------------------------------------------------
 -- Monter / descendre du tapis
@@ -184,16 +168,12 @@ local function enter(index: number)
 	local y = beltTop + humanoid.HipHeight + root.Size.Y / 2
 	root.Anchored = true
 	character:PivotTo(CFrame.new(spot.Position.X, y, spot.Position.Z) * (spot - spot.Position))
-	holdSources = {}
-	holding = false
 	gui.Enabled = true
 	updateRunning()
 end
 
 local function leave()
 	active = nil
-	holdSources = {}
-	holding = false
 	gui.Enabled = false
 	if runTrack then
 		runTrack:Stop(0.2)
@@ -224,41 +204,9 @@ end)
 -- Entrées
 --------------------------------------------------------------------
 UserInputService.InputBegan:Connect(function(input, processed)
-	if not active then
-		return
-	end
-	if LEAVE_KEYS[input.KeyCode] and not processed then
+	if active and LEAVE_KEYS[input.KeyCode] and not processed then
 		Remotes.Action:FireServer("TrainStop")
-		return
 	end
-	if HOLD_KEYS[input.KeyCode] then
-		holdSources[input.KeyCode] = true
-		recomputeHold()
-	elseif input.UserInputType == Enum.UserInputType.MouseButton1 and not processed then
-		holdSources.Mouse = true
-		recomputeHold()
-	end
-end)
-UserInputService.InputEnded:Connect(function(input)
-	if HOLD_KEYS[input.KeyCode] then
-		holdSources[input.KeyCode] = nil
-		recomputeHold()
-	elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
-		holdSources.Mouse = nil
-		recomputeHold()
-	end
-end)
-runBtn.MouseButton1Down:Connect(function()
-	holdSources.Button = true
-	recomputeHold()
-end)
-runBtn.MouseButton1Up:Connect(function()
-	holdSources.Button = nil
-	recomputeHold()
-end)
-runBtn.MouseLeave:Connect(function()
-	holdSources.Button = nil
-	recomputeHold()
 end)
 
 --------------------------------------------------------------------
@@ -278,15 +226,15 @@ task.spawn(function()
 	local rng = Random.new()
 	while true do
 		task.wait(0.45)
-		local head = player.Character and player.Character:FindFirstChild("Head")
-		if pending > 0 and head and active then
+		local headPart = player.Character and player.Character:FindFirstChild("Head")
+		if pending > 0 and headPart and active then
 			local amount = pending
 			pending = 0
 			local bb = Instance.new("BillboardGui")
 			bb.Size = UDim2.fromOffset(160, 44)
 			bb.StudsOffset = Vector3.new(rng:NextNumber(-2.5, 2.5), 2.5, 0)
 			bb.AlwaysOnTop = true
-			bb.Adornee = head
+			bb.Adornee = headPart
 			bb.Parent = playerGui
 			local label = Instance.new("TextLabel")
 			label.BackgroundTransparency = 1
@@ -311,8 +259,8 @@ task.spawn(function()
 end)
 
 Remotes.State.OnClientEvent:Connect(function(state)
-	passes = state.Passes or {}
 	rate = state.TreadmillRate or rate
 	level = state.Treadmill or level
+	cost = state.TreadmillCost
 	updateRunning()
 end)

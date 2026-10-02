@@ -254,14 +254,106 @@ local function buildBase(index: number, entrance: Vector3, inward: Vector3, pare
 	local tx, td = 17, 11
 	local tmBase = part({ Name = "TreadmillBase", Size = Vector3.new(9, 1.4, 16), CFrame = at(tx, 2.4, td), Color = Props.INK, Studs = "top" }, tmFolder)
 	local belt = part({ Name = "Belt", Size = Vector3.new(6.5, 0.3, 14), CFrame = at(tx, 3.2, td), Color = Color3.fromRGB(35, 35, 45), Material = Enum.Material.Fabric }, tmFolder)
-	local frames = {}
+	-- 6 habillages (un par palier de niveaux), un seul visible à la fois
+	local tiers = { {}, {}, {}, {}, {}, {} }
+	local function deco(n: number, props: { [string]: any })
+		props.CanCollide = false
+		props.CanQuery = false
+		local baseT = props.Transparency or 0
+		props.Transparency = 1
+		local p = part(props, tmFolder)
+		p:SetAttribute("BaseT", baseT)
+		table.insert(tiers[n], p)
+		return p
+	end
+	local function T(x, y, d)
+		return at(tx + x, y, td + d)
+	end
+	local grey = Color3.fromRGB(170, 175, 190)
+	local metal = Color3.fromRGB(205, 210, 220)
+	-- 1. BASIC : rambardes grises
 	for _, side in { -1, 1 } do
-		table.insert(frames, part({ Name = "Side", Size = Vector3.new(1, 1.6, 16), CFrame = at(tx + side * 4, 3.2, td), Color = Color3.fromRGB(170, 175, 190), Studs = "top" }, tmFolder))
-		table.insert(frames, part({ Name = "Rail", Size = Vector3.new(0.6, 0.6, 8), CFrame = at(tx + side * 4, 6.4, td - 3), Color = Color3.fromRGB(200, 205, 215), Material = Enum.Material.Metal }, tmFolder))
-		table.insert(frames, part({ Name = "RailPost", Size = Vector3.new(0.6, 3.4, 0.6), CFrame = at(tx + side * 4, 4.6, td - 6.7), Color = Color3.fromRGB(200, 205, 215), Material = Enum.Material.Metal }, tmFolder))
-		-- cristaux (visibles aux hauts niveaux)
-		table.insert(frames, part({ Name = "Crystal", Size = Vector3.new(1.4, 4, 1.4), CFrame = at(tx + side * 5.2, 4.5, td + 4) * CFrame.Angles(0, 0, math.rad(side * 18)), Color = color, Material = Enum.Material.Neon, Transparency = 1, CanCollide = false }, tmFolder))
-		table.insert(frames, part({ Name = "Crystal", Size = Vector3.new(1, 3, 1), CFrame = at(tx + side * 5.4, 4, td - 2) * CFrame.Angles(0, 0, math.rad(side * 28)), Color = color, Material = Enum.Material.Neon, Transparency = 1, CanCollide = false }, tmFolder))
+		deco(1, { Name = "Side", Size = Vector3.new(1, 1.6, 16), CFrame = T(side * 4, 3.2, 0), Color = grey, Studs = "top" })
+		deco(1, { Name = "Rail", Size = Vector3.new(0.6, 0.6, 7), CFrame = T(side * 4, 6.4, -3.5), Color = metal, Material = Enum.Material.Metal })
+		deco(1, { Name = "Post", Size = Vector3.new(0.6, 3.4, 0.6), CFrame = T(side * 4, 4.6, -6.7), Color = metal, Material = Enum.Material.Metal })
+	end
+	-- 2. SPORT : panneaux verts à bande blanche, gourde, barre à serviette
+	local green = Color3.fromRGB(80, 220, 120)
+	for _, side in { -1, 1 } do
+		deco(2, { Name = "Side", Size = Vector3.new(1.2, 2, 16), CFrame = T(side * 4.1, 3.4, 0), Color = green, Studs = "all" })
+		deco(2, { Name = "Stripe", Size = Vector3.new(1.3, 0.4, 16.1), CFrame = T(side * 4.1, 3.6, 0), Color = Color3.new(1, 1, 1) })
+		deco(2, { Name = "Rail", Size = Vector3.new(0.7, 0.7, 7), CFrame = T(side * 4.1, 6.6, -3.5), Color = green, Material = Enum.Material.Metal })
+		deco(2, { Name = "Post", Size = Vector3.new(0.7, 3.6, 0.7), CFrame = T(side * 4.1, 4.8, -6.7), Color = metal, Material = Enum.Material.Metal })
+	end
+	deco(2, { Name = "Bottle", Size = Vector3.new(1.4, 0.8, 0.8), Shape = Enum.PartType.Cylinder, CFrame = T(2.6, 8.1, -7.6) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(60, 170, 255), Material = Enum.Material.Glass, Transparency = 0.2 })
+	deco(2, { Name = "Towel", Size = Vector3.new(6, 0.5, 0.5), CFrame = T(0, 6.6, -7), Color = Color3.new(1, 1, 1), Material = Enum.Material.Fabric })
+	-- 3. PRO : bleu, liserés lumineux, enceintes, arche
+	local blue = Color3.fromRGB(60, 150, 255)
+	for _, side in { -1, 1 } do
+		deco(3, { Name = "Side", Size = Vector3.new(1.4, 2.2, 16.4), CFrame = T(side * 4.2, 3.5, 0), Color = blue, Studs = "all" })
+		deco(3, { Name = "Edge", Size = Vector3.new(0.3, 0.2, 14), CFrame = T(side * 3.35, 3.45, 0), Color = Color3.fromRGB(120, 220, 255), Material = Enum.Material.Neon })
+		deco(3, { Name = "Rail", Size = Vector3.new(0.7, 0.7, 7), CFrame = T(side * 4.2, 6.6, -3.5), Color = metal, Material = Enum.Material.Metal })
+		deco(3, { Name = "Post", Size = Vector3.new(0.7, 3.6, 0.7), CFrame = T(side * 4.2, 4.8, -6.7), Color = metal, Material = Enum.Material.Metal })
+		deco(3, { Name = "Speaker", Size = Vector3.new(2.2, 6, 2.2), CFrame = T(side * 6.4, 4.6, 6), Color = Color3.fromRGB(30, 34, 52), Studs = "all" })
+		deco(3, { Name = "Cone", Size = Vector3.new(0.3, 1.6, 1.6), Shape = Enum.PartType.Cylinder, CFrame = T(side * 6.4, 5.6, 4.85) * CFrame.Angles(0, math.rad(90), 0), Color = Color3.fromRGB(120, 220, 255), Material = Enum.Material.Neon })
+		deco(3, { Name = "ArchPost", Size = Vector3.new(1, 9, 1), CFrame = T(side * 4.6, 7.5, 7.6), Color = blue, Studs = "all" })
+	end
+	deco(3, { Name = "Arch", Size = Vector3.new(10.2, 1.2, 1.2), CFrame = T(0, 12.4, 7.6), Color = Color3.fromRGB(120, 220, 255), Material = Enum.Material.Neon })
+	-- 4. TURBO : violet, éventails, ailerons, lumière sous le tapis
+	local purple = Color3.fromRGB(170, 90, 255)
+	for _, side in { -1, 1 } do
+		deco(4, { Name = "Side", Size = Vector3.new(1.6, 2.4, 16.6), CFrame = T(side * 4.3, 3.6, 0), Color = purple, Studs = "all" })
+		deco(4, { Name = "Under", Size = Vector3.new(0.4, 0.3, 16), CFrame = T(side * 4.3, 2.2, 0), Color = Color3.fromRGB(220, 140, 255), Material = Enum.Material.Neon })
+		deco(4, { Name = "Rail", Size = Vector3.new(0.7, 0.7, 7), CFrame = T(side * 4.3, 6.6, -3.5), Color = Color3.fromRGB(220, 140, 255), Material = Enum.Material.Neon })
+		deco(4, { Name = "Post", Size = Vector3.new(0.7, 3.6, 0.7), CFrame = T(side * 4.3, 4.8, -6.7), Color = metal, Material = Enum.Material.Metal })
+		deco(4, { Name = "FanBox", Size = Vector3.new(1.4, 6, 6), Shape = Enum.PartType.Cylinder, CFrame = T(side * 6.6, 5.6, 5) * CFrame.Angles(0, 0, 0), Color = Color3.fromRGB(40, 30, 60) })
+		for k = 0, 2 do
+			deco(4, { Name = "Blade", Size = Vector3.new(0.2, 5, 1), CFrame = T(side * 7.4, 5.6, 5) * CFrame.Angles(math.rad(k * 60), 0, 0), Color = Color3.fromRGB(220, 140, 255), Material = Enum.Material.Neon })
+		end
+		for k = 0, 2 do
+			deco(4, { Name = "Fin", Size = Vector3.new(0.4, 2.6, 1.4), CFrame = T(side * 5.1, 4.8, -3 + k * 3) * CFrame.Angles(0, 0, math.rad(side * -30)), Color = purple, Material = Enum.Material.Neon })
+		end
+	end
+	-- 5. HYPER : cadre doré, arche à orbes, cristaux jaunes
+	local gold = Color3.fromRGB(255, 200, 40)
+	for _, side in { -1, 1 } do
+		deco(5, { Name = "Side", Size = Vector3.new(1.6, 2.6, 16.8), CFrame = T(side * 4.3, 3.7, 0), Color = gold, Material = Enum.Material.Metal, Studs = "top" })
+		deco(5, { Name = "Rail", Size = Vector3.new(0.8, 0.8, 7), CFrame = T(side * 4.3, 6.8, -3.5), Color = gold, Material = Enum.Material.Metal })
+		deco(5, { Name = "Post", Size = Vector3.new(0.8, 3.8, 0.8), CFrame = T(side * 4.3, 4.9, -6.7), Color = gold, Material = Enum.Material.Metal })
+		deco(5, { Name = "ArchPost", Size = Vector3.new(1.4, 11, 1.4), CFrame = T(side * 5, 8.5, 7.8), Color = gold, Material = Enum.Material.Metal })
+		deco(5, { Name = "Orb", Size = Vector3.new(2.4, 2.4, 2.4), Shape = Enum.PartType.Ball, CFrame = T(side * 5, 15, 7.8), Color = Color3.fromRGB(255, 240, 150), Material = Enum.Material.Neon })
+		for k, d in { -4, 1, 6 } do
+			deco(5, { Name = "Crystal", Size = Vector3.new(1.2, 3 + k, 1.2), CFrame = T(side * 6.2, 3.4 + k * 0.5, d) * CFrame.Angles(math.rad(10 * k), 0, math.rad(side * 20)), Color = Color3.fromRGB(255, 220, 60), Material = Enum.Material.Neon })
+		end
+	end
+	deco(5, { Name = "Arch", Size = Vector3.new(11.4, 1.4, 1.4), CFrame = T(0, 14, 7.8), Color = gold, Material = Enum.Material.Metal })
+	-- 6. QUANTUM : gros cristaux roses et cyan, anneaux flottants
+	local pink = Color3.fromRGB(255, 60, 140)
+	local cyan = Color3.fromRGB(80, 230, 255)
+	for _, side in { -1, 1 } do
+		deco(6, { Name = "Side", Size = Vector3.new(1.8, 2.8, 17), CFrame = T(side * 4.4, 3.8, 0), Color = Color3.fromRGB(40, 20, 50), Studs = "all" })
+		deco(6, { Name = "Edge", Size = Vector3.new(0.4, 0.3, 16), CFrame = T(side * 3.4, 3.5, 0), Color = pink, Material = Enum.Material.Neon })
+		deco(6, { Name = "Rail", Size = Vector3.new(0.8, 0.8, 7), CFrame = T(side * 4.4, 6.9, -3.5), Color = cyan, Material = Enum.Material.Neon })
+		deco(6, { Name = "Post", Size = Vector3.new(0.8, 3.8, 0.8), CFrame = T(side * 4.4, 5, -6.7), Color = Color3.fromRGB(40, 20, 50) })
+		for k, d in { -6, -1, 4, 8 } do
+			local c = (k % 2 == 0) and pink or cyan
+			deco(6, { Name = "Crystal", Size = Vector3.new(1.8, 5 + (k % 3) * 2, 1.8), CFrame = T(side * (6 + (k % 2)), 4.5 + (k % 3), d) * CFrame.Angles(math.rad(8 * k), math.rad(30 * k), math.rad(side * 22)), Color = c, Material = Enum.Material.Glass, Transparency = 0.15 })
+			deco(6, { Name = "CrystalCore", Size = Vector3.new(0.8, 3 + (k % 3), 0.8), CFrame = T(side * (6 + (k % 2)), 4.5 + (k % 3), d) * CFrame.Angles(math.rad(8 * k), math.rad(30 * k), math.rad(side * 22)), Color = c, Material = Enum.Material.Neon })
+		end
+	end
+	-- deux anneaux lumineux autour du coureur (faits de segments pour rester creux)
+	for k, y in { 9.5, 12 } do
+		local radius = 5 - k * 0.8
+		for i = 0, 15 do
+			local ang = i / 16 * math.pi * 2
+			deco(6, {
+				Name = "Ring",
+				Size = Vector3.new(radius * 0.42, 0.35, 0.35),
+				CFrame = T(math.cos(ang) * radius, y, math.sin(ang) * radius) * CFrame.Angles(0, -ang + math.pi / 2, 0),
+				Color = (k == 1) and pink or cyan,
+				Material = Enum.Material.Neon,
+			})
+		end
 	end
 	local console = part({ Name = "Console", Size = Vector3.new(7, 5, 1.4), CFrame = at(tx, 5, td - 7.6), Color = Color3.fromRGB(170, 175, 190), Studs = "all" }, tmFolder)
 	local screen = part({ Name = "Screen", Size = Vector3.new(5, 2.2, 0.2), CFrame = at(tx, 5.8, td - 6.85), Color = Color3.fromRGB(80, 255, 140), Material = Enum.Material.Neon }, tmFolder)
@@ -321,7 +413,7 @@ local function buildBase(index: number, entrance: Vector3, inward: Vector3, pare
 			Console = console,
 			Screen = screen,
 			Glow = glow,
-			Frames = frames,
+			Tiers = tiers,
 			Spot = spot,
 			Sign = upgradeSign,
 			SignLabels = { upgradeLabel, upgradeLabelBack },

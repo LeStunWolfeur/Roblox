@@ -176,7 +176,7 @@ function CardArt.build(parent: Instance, id: string, finish: string?, options: {
 		Size = UDim2.fromScale(0.94, 0.4),
 		Position = UDim2.fromScale(0.03, 0.55),
 		BackgroundTransparency = 1,
-		Font = Enum.Font.GothamBold,
+		Font = Enum.Font.FredokaOne,
 		TextScaled = true,
 		TextColor3 = Color3.fromRGB(20, 20, 30),
 		Text = hidden and "" or (Format.cash(Cards.IncomeOf(id, finish, opts.grade)) .. "/s"),

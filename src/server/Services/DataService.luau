@@ -36,6 +36,7 @@ local function defaultData()
 		TotalEarned = 0,
 		Steals = 0,
 		DailyStreak = 0,
+		StarterBought = false,
 		LastDaily = 0,
 		Codes = {}, -- [CODE] = true pour chaque code utilisé
 		Receipts = {},

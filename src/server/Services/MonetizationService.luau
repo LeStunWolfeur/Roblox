@@ -6,6 +6,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local DataService = require(script.Parent.DataService)
 
 local MonetizationService = {}
@@ -74,7 +75,11 @@ end
 
 function MonetizationService.PromptPass(player: Player, key: string)
 	local pass = Config.GamePasses[key]
-	if not pass or pass.Id == 0 or MonetizationService.Owns(player, key) then
+	if not pass or MonetizationService.Owns(player, key) then
+		return
+	end
+	if pass.Id == 0 then
+		Remotes.Notify:FireClient(player, pass.Name .. " is not on sale yet", "error")
 		return
 	end
 	MarketplaceService:PromptGamePassPurchase(player, pass.Id)
@@ -82,7 +87,11 @@ end
 
 function MonetizationService.PromptProduct(player: Player, key: string)
 	local product = Config.Products[key]
-	if not product or product.Id == 0 then
+	if not product then
+		return
+	end
+	if product.Id == 0 then
+		Remotes.Notify:FireClient(player, product.Name .. " is not on sale yet", "error")
 		return
 	end
 	MarketplaceService:PromptProductPurchase(player, product.Id)
