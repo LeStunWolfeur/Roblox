@@ -380,9 +380,9 @@ function CardArt.build(parent: Instance, id: string, finish: string?, options: {
 	if hidden then
 		finishLine = "Find it in the shops"
 	elseif f.Name ~= "" then
-		finishLine = ("%s finish  x%s"):format(f.Name, tostring(f.Mult))
+		finishLine = ("%s mutation  x%s"):format(f.Name, tostring(f.Mult))
 	else
-		finishLine = "Standard finish"
+		finishLine = "No mutation"
 	end
 	text(info, {
 		Size = UDim2.fromScale(0.92, 0.4),

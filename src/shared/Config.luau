@@ -359,7 +359,7 @@ Config.MusicVolume = 0.25
 --------------------------------------------------------------------
 -- IMAGES (planches du dossier assets/, à uploader une fois)
 -- Studio > Asset Manager > Images > Bulk Import, puis clic droit
--- sur l'image > Copy Asset ID, et colle "rbxassetid://ID" ici.
+-- sur l'image > Copy ID to Clipboard, et colle "rbxassetid://ID" ici.
 -- Tant qu'un ID est vide, le jeu utilise les dessins faits en code.
 --------------------------------------------------------------------
 Config.Images = {

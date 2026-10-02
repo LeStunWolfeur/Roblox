@@ -83,6 +83,7 @@ ImageAtlas.Icons = {
 	cases = { 2, 512, 256 },
 	plus = { 2, 768, 256 },
 	trophy = { 2, 0, 512 },
+	grade = { 2, 256, 512 },
 }
 
 return ImageAtlas

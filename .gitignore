@@ -2,3 +2,6 @@
 *.rbxlx.lock
 sourcemap.json
 /build/*.rbxl.lock
+__pycache__/
+/build/*.png
+/build/*.log

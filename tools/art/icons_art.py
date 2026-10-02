@@ -23,7 +23,7 @@ TINT = (238, 240, 246)
 ORDER = [
     "rebirth", "book", "basket", "ticket", "gift", "cardpack", "crate", "cash",
     "cashpile", "clover", "bolt", "house", "arrowup", "snowflake", "flask", "calendar",
-    "people", "crown", "clock", "magnet", "cards", "treadmill", "cases", "plus", "trophy",
+    "people", "crown", "clock", "magnet", "cards", "treadmill", "cases", "plus", "trophy", "grade",
 ]
 
 
@@ -320,6 +320,28 @@ def trophy(c):
     c.fill(c.mask(RR(C, 206, 120, 40, 10)), (150, 90, 50), ol=OL, gloss=0.4)
     c.fill(c.mask(RR(C, 206, 70, 16, 4)), light(GOLD, 0.3), ol=0, gloss=0.3, rim=0)
     c.fill(c.mask(STAR(C, 104, 26, 11, 5)), light(GOLD, 0.65), ol=0, gloss=0, rim=0)
+
+
+def grade(c):
+    """carte gradée dans son boîtier, étiquette rouge "10" """
+    rot = -10
+
+    def at(x, y):
+        return rot_pts([(x, y)], C, C, rot)[0]
+
+    c.fill(c.mask(RR(C, C, 156, 216, 18, rot)), (215, 235, 250), ol=OL, gloss=0.7)
+    c.fill(c.mask(RR(*at(0, 24), 128, 150, 10, rot)), (255, 120, 60), ol=OL - 3, gloss=0.5)
+    c.fill(c.mask(STAR(*at(0, 24), 38, 16, 5, -90 + rot)), WHITE, ol=0, gloss=0, rim=0)
+    label = c.mask(RR(*at(0, -74), 132, 46, 8, rot))
+    c.fill(label, RED, ol=OL - 2, gloss=0.5)
+    # "10" dessiné en formes
+    one = [at(-22, -90), at(-22, -58)]
+    c.flat(c.mask(CAP(one[0][0], one[0][1], one[1][0], one[1][1], 6)), WHITE)
+    c.flat(c.mask(CAP(*at(-22, -90), *at(-32, -82), 5)), WHITE)
+    zero = c.mask(E(*at(14, -74), 18, 21, rot), sub=[E(*at(14, -74), 8, 11, rot)])
+    c.flat(zero, WHITE)
+    c.flat(c.mask(STAR(*at(-52, -74), 10, 4.5, 5, -90 + rot)), (255, 225, 90))
+    c.flat(c.mask(STAR(*at(52, -74), 10, 4.5, 5, -90 + rot)), (255, 225, 90))
 
 
 DRAW = {name: globals()[name] for name in ORDER}

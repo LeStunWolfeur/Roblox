@@ -479,7 +479,7 @@ local PASS_LOOK = {
 	VIP = { "crown", "Gold" },
 	DoubleCash = { "cash", "Green" },
 	DoubleSpeed = { "bolt", "Orange" },
-	CheapGrading = { "clock", "Blue" },
+	CheapGrading = { "grade", "Blue" },
 	ExtraCases = { "cases", "Purple" },
 	AutoCollect = { "magnet", "Red" },
 	Lucky = { "clover", "Candy" },
@@ -887,7 +887,7 @@ end
 --------------------------------------------------------------------
 -- GRADING LAB (stand au bout de la rue) : on fait noter la carte qu'on a en main
 --------------------------------------------------------------------
-local gradeContent = makePanel("Grading", "Grading Lab", "Blue", "clock", Vector2.new(820, 560))
+local gradeContent = makePanel("Grading", "Grading Lab", "Blue", "grade", Vector2.new(820, 560))
 local gradeArtHolder = Kit.new("Frame", { Parent = gradeContent, BackgroundTransparency = 1, Size = UDim2.fromOffset(250, 350), Position = UDim2.fromOffset(10, 10) })
 local gradeEmpty = Kit.text({
 	Parent = gradeContent,

@@ -318,6 +318,14 @@ builders.trophy = function(m)
 	arc(m, CF(0.9, 0.7, 0), 0.45, -math.pi / 2, math.pi / 2, 4, 0.25, 0.25, gold)
 end
 
+builders.grade = function(m)
+	local root = CF() * A(0, 0, rad(-10))
+	P(m, V(2.4, 3.3, 0.5), root, rgb(215, 235, 250))
+	P(m, V(2.0, 0.7, 0.56), root * CF(0, 1.15, 0), rgb(235, 50, 62))
+	P(m, V(1.9, 2.2, 0.56), root * CF(0, -0.4, 0), rgb(255, 120, 60))
+	P(m, V(0.6, 0.6, 0.6), root * CF(0, -0.4, 0.05), rgb(255, 255, 255), "Ball")
+end
+
 -- cadre la caméra pour que tout le modèle tienne dans la vue
 local function frame(vp: ViewportFrame, model: Model, dir: Vector3, fov: number, fill: number)
 	local minV = Vector3.new(math.huge, math.huge, math.huge)

@@ -2,7 +2,7 @@
 
 Jeu Roblox du genre "Steal a" (dans la lignée de Steal an Egg), sur le thème des cartes à collectionner.
 
-Tu pars de ta galerie, tu remontes une longue rue droite pleine de boutiques de cartes, tu voles une carte sur un présentoir et tu cours jusqu'à la zone sûre avant que le gardien de la boutique ne t'attrape. Les cartes volées passent au labo de gradation, reçoivent une note de 1 à 10, puis vont dans ta galerie où elles rapportent du cash. Ce cash sert à acheter de meilleurs tapis de course, pour aller plus vite et viser des boutiques plus lointaines.
+Tu pars de ta base, tu remontes une longue rue droite pleine de boutiques de cartes, tu prends une carte sur un présentoir et tu cours jusqu'à la zone sûre avant que le gardien ne t'attrape. La carte volée se pose toute seule sur un support libre de ta base et rapporte du cash. Tu peux la faire noter au stand GRADING LAB (note de 1 à 10, qui multiplie son revenu), ouvrir des packs au stand CARD PACKS, et améliorer ton tapis de course pour aller plus vite et viser des boutiques plus lointaines.
 
 Fichier prêt à ouvrir : `build/StealACard.rbxl`. Toute la map est générée par le code au lancement, rien à construire à la main.
 
@@ -15,15 +15,29 @@ Fichier prêt à ouvrir : `build/StealACard.rbxl`. Toute la map est générée p
 
 ## Les lieux
 
-**La rue des bases (zone sûre)** : 8 bases de joueurs, 4 de chaque côté de la rue, juste avant les boutiques. Dans chaque base :
-- **Le tapis de course** (devant à droite) : E pour monter, et ton personnage court tout seul. Tu peux rester AFK dessus, la Speed continue de monter. **9 niveaux**, chacun avec son propre modèle 3D (voir `docs/treadmill-tiers.png`) : Common (gris métal), Uncommon (néons verts), Rare (néons bleus), Epic (violet), Legendary (or), Mythic (rouge avec pointes), Divine (blanc et cyan, cristaux qui tournent autour), Ancient (bande galaxie, planètes en orbite) et Supreme (or et blanc, ailes, auréole, nuages). Les flèches de la bande défilent plus vite à chaque niveau. X pour descendre.
-- **Le bouton d'amélioration**, à côté du tapis : un gros bouton rond sur un socle, avec le prix affiché au-dessus ("UPGRADE > RARE, $2.50K"). Tu cliques dessus pour passer au niveau suivant. L'étiquette est verte si tu as l'argent, grise sinon, dorée au niveau max. F marche aussi, et +1 niveau existe en Robux.
-- **16 présentoirs** pour exposer tes cartes gradées. Ils produisent du cash, à ramasser sur la dalle verte. Les premiers sont ouverts, les suivants s'achètent.
-- **La machine de gradation** au fond (E pour l'ouvrir). Les cartes volées y arrivent toutes seules. La gradation continue même déconnecté, et un panneau "X CARDS READY!" s'affiche au-dessus quand c'est prêt.
+**La rue des bases (zone sûre)** : 8 bases de joueurs, 4 de chaque côté. Sur l'enseigne de la base s'affiche le pseudo du joueur et son revenu en direct. Une base libre n'affiche rien, juste sa couleur.
 
-**Au bout de la rue des bases, deux stands** (avec comptoir, étagères, auvent rayé, grande enseigne et un vendeur) :
-- **UPGRADES** : ouvre la fenêtre des améliorations (tapis, vitrines, labo).
-- **SELL CARDS** : vendre ses cartes une par une ou toutes d'un coup, avec un filtre (toutes, en attente au labo, exposées dans la base). "SELL ALL" demande une confirmation. Une carte se revend 25 secondes de son revenu (moitié prix si elle n'est pas encore gradée) : c'est volontairement peu, une carte rapporte bien plus en restant exposée.
+Dans chaque base :
+- **Le tapis de course** (devant à droite) : E pour monter, ton personnage court tout seul et tu peux rester AFK dessus. **9 niveaux**, et le modèle 3D change à chaque niveau (voir `docs/treadmill-tiers.png`) : Common, Uncommon, Rare, Epic, Legendary, Mythic, Divine, Ancient et Supreme. X pour descendre.
+- **Le bouton d'amélioration**, à côté du tapis, avec le prix affiché au-dessus. Il faut cliquer dessus à chaque fois (il n'y a plus de touche pour améliorer). L'étiquette est verte si tu as l'argent, grise sinon, dorée au niveau max.
+- **Les supports de cartes** : 8 par étage. Tu commences avec 3 supports ouverts, les suivants s'achètent un par un et coûtent de plus en plus cher (150 $, 480 $, 1,5K $, 4,9K $...). Le 2e étage s'ouvre au 1er rebirth, le 3e au 3e rebirth (24 supports au total, +2 avec le pass). Des plaques "UP TO FLOOR 2/3" font monter et descendre.
+- Sur un support, la carte flotte en grand et tourne doucement. Quand tu t'approches, deux boutons apparaissent : **SELL** (avec une confirmation "SURE?") et **PICK UP** pour la prendre en main et la poser ailleurs ou l'emmener au labo. Il n'y a plus de vente par touche.
+- Si tous les supports sont pleins, les nouvelles cartes vont dans la **réserve** (bouton STORAGE en bas à gauche, 30 places), d'où tu peux les reprendre ou les vendre.
+
+**Au bout de la rue des bases, trois stands** (comptoir, enseigne, vendeur) :
+- **UPGRADES** : la fenêtre des améliorations (tapis, supports, étages).
+- **GRADING LAB** : tu viens avec une carte en main, tu paies et la note tombe tout de suite. Le prix vaut 60 secondes du revenu de la carte (minimum 25 $), donc une carte chère coûte cher à noter. Tu peux regrader si la note ne te plaît pas. Une carte volée ne va plus au labo toute seule : elle va directement sur un support.
+- **CARD PACKS** : 5 packs, du moins cher au plus fort.
+
+| Pack | Prix | Chances | Carte bonus |
+|---|---|---|---|
+| Basic | 500 $ | Common 70 %, Uncommon 25 %, Rare 5 % | 10 % |
+| Silver | 15K $ | Uncommon 50 %, Rare 38 %, Epic 11 %, Legendary 1 % | 15 % |
+| Gold | 400K $ | Rare 45 %, Epic 40 %, Legendary 13 %, Mythic 2 % | 20 % |
+| Diamond | 12M $ | Epic 45 %, Legendary 42 %, Mythic 12 %, Secret 1 % | 25 % |
+| Cosmic | 500M $ | Legendary 55 %, Mythic 38 %, Secret 7 % | 35 % |
+
+Le stock change toutes les 5 minutes (le même dans tous les serveurs) et les gros packs ne sont pas toujours en rayon. Chaque pack ouvert sans Legendary ou mieux te donne +3 % de chance pour les suivants (jusqu'à +45 %, remis à zéro quand tu tombes sur une Legendary). Les packs Gold, Diamond et Cosmic donnent aussi +20 % de cash pendant 10 minutes. On peut remplir son stock tout de suite en Robux.
 
 **La rue des boutiques** : la suite de la même rue, avec 10 boutiques à thème.
 
@@ -40,29 +54,23 @@ Fichier prêt à ouvrir : `build/StealACard.rbxl`. Toute la map est générée p
 | 9 | Sky Exchange | 1.6B | Sky Broker |
 | 10 | Cosmic Archive | 12B | The Archivist |
 
-Il n'y a pas de portail bloquant : avant chaque zone, un grand panneau donne la **vitesse conseillée**, et une bannière la rappelle quand tu entres. Chaque boutique a 6 présentoirs. Sur chacun se tient la **créature de la carte** (chaque carte a la sienne), avec la carte qui flotte au-dessus et une étiquette nom, rareté et revenu. Le présentoir change selon la rareté :
-- Common : gris.
-- Rare : couleur bleue et lumière.
-- Epic : en plus, un rayon lumineux.
-- Legendary et Mythic : en plus, des étincelles.
-- Secret : noir et blanc.
+Avant chaque zone, un grand panneau donne la **vitesse conseillée**. Sur les présentoirs, plus de créatures en 3D : ce sont **de grandes cartes en 3D** qui flottent et tournent, avec une aura selon la rareté (particules, lumière dès Rare) et un effet par mutation (Holo, Gold, Diamond, Rainbow, Dark Matter, Haunted, Frozen). Le socle prend la couleur de la rareté.
+
+**Refresh de la map** : toutes les 10 minutes, un compte à rebours de 5 secondes s'affiche à l'écran et sur le grand écran au-dessus de la rue. À zéro, tous les joueurs qui sont dans les boutiques sont renvoyés dans leur base (ceux qui sont dans la zone sûre ne bougent pas) et tous les présentoirs changent.
 
 ## Les règles du vol
 
-- Maintiens E sur une carte pour la prendre. Tu la portes au-dessus de ta tête et tu cours 15 % moins vite.
-- Le gardien (un vendeur en uniforme, animé) te poursuit jusqu'au portail de sa zone, et il accélère pendant la poursuite (jusqu'à +25 %). Il court aussi plus vite quand tu portes une carte rare : +4 % pour une Epic, +8 % Legendary, +12 % Mythic, +16 % Secret.
-- S'il t'attrape, tu es projeté et **la carte disparaît** : elle retourne dans la boutique. Avant, elle tombait au sol et on pouvait se faire attraper exprès pour la reprendre, c'est corrigé.
-- Les autres joueurs peuvent te mettre une claque pour te faire lâcher la carte (elle tombe au sol 25 s, n'importe qui peut la ramasser). Pas de claques dans la zone sûre.
-- Dès que tu repasses la ligne SAFE ZONE, la carte part à la machine de gradation de ta base.
+- Maintiens E sur une carte pour la prendre. Tu la tiens devant toi, dans les mains, et tu cours 15 % moins vite.
+- Le gardien (un policier détaillé, casquette, uniforme, matraque, lunettes noires dans les boutiques 5 à 10) te poursuit jusqu'au portail de sa zone et accélère pendant la poursuite (jusqu'à +25 %). Il court aussi plus vite quand tu portes une carte rare.
+- S'il t'attrape, la carte disparaît et une nouvelle carte réapparaît ailleurs dans la boutique.
+- Les autres joueurs peuvent te mettre une claque pour te faire lâcher la carte (elle tombe au sol 25 s). Pas de claques dans la zone sûre.
+- Dès que tu repasses la ligne SAFE ZONE, la carte se pose sur un support libre de ta base.
 
-**Équilibrage, vérifié par simulation sur les 10 zones** :
-- En dessous de la vitesse conseillée, le gardien t'attrape.
-- À la vitesse conseillée, tu ressors avec les cartes de devant.
-- Il faut environ 6 fois la vitesse conseillée pour celles du fond, près du gardien. C'est la même difficulté dans les 10 zones. Dans Steal an Egg aussi, la vitesse du portail permet seulement d'entrer, et il faut de la marge pour ressortir avec l'œuf.
+**Équilibrage, vérifié par simulation sur les 10 zones** : en dessous de la vitesse conseillée, le gardien t'attrape. À la vitesse conseillée, tu ressors avec les cartes de devant. Il faut environ 6 fois la vitesse conseillée pour celles du fond. C'est la même difficulté dans les 10 zones.
 
 ## Progression
 
-**L'argent et la vitesse.** La boucle : voler des cartes → les exposer pour gagner du cash → améliorer le tapis → plus de Speed → voler des cartes plus rares. Les chiffres sont dans `Config.luau` :
+**L'argent et la vitesse.** La boucle : voler des cartes, les poser pour gagner du cash, les faire noter, améliorer le tapis, voler des cartes plus rares. Les chiffres sont dans `Config.luau` :
 
 | Niveau du tapis | Speed/s | Prix pour y passer | Boutique visée | Temps de course pour l'atteindre |
 |---|---|---|---|---|
@@ -76,99 +84,94 @@ Il n'y a pas de portail bloquant : avant chaque zone, un grand panneau donne la 
 | 8 Ancient | 1.4M | $100M | 9 Sky Exchange (1.6B) | 17 min |
 | 9 Supreme | 8.5M | $1B | 10 Cosmic Archive (12B) | 20 min |
 
-Chaque niveau donne environ 6 fois plus de Speed. Chaque prix correspond à quelques minutes du revenu qu'on a à ce stade. Il faut environ 1 h 20 de course pour tout débloquer sans rebirth, sans compter le temps de vol. Les rebirths (+25 % de Speed chacun) et le pass 2x Training raccourcissent tout ça.
+Il faut environ 1 h 20 de course pour tout débloquer sans rebirth, sans compter le temps de vol. La vitesse n'est donc pas trop facile : chaque boutique demande plusieurs minutes de tapis, et il faut des cartes exposées pour payer le niveau suivant.
 
-**Rester AFK.** Sur le tapis, on peut laisser tourner : la Speed monte et les cartes exposées rapportent. Le panneau du tapis affiche le temps restant avant la vitesse conseillée de la prochaine boutique. Roblox déconnecte tout joueur inactif au bout de 20 minutes, et un jeu ne peut pas l'empêcher. Le jeu fait donc revenir le joueur dans le même serveur à 17 minutes d'inactivité, puis le remet sur son tapis. C'est une méthode courante (le système AutoRejoin fait pareil). Elle ne marche que dans le jeu publié, pas dans Studio.
+**Rester AFK.** Sur le tapis, la Speed monte et les cartes posées rapportent. Roblox déconnecte tout joueur inactif au bout de 20 minutes et un jeu ne peut pas l'empêcher. Le jeu fait donc revenir le joueur dans le même serveur à 17 minutes d'inactivité, puis le remet sur son tapis (même méthode que le système AutoRejoin). Ça ne marche que dans le jeu publié, pas dans Studio.
 
-**Sentir la vitesse.** Quand tu cours vite, le champ de vision s'élargit, des traits de vitesse défilent sur les bords de l'écran et une traînée colorée te suit. Sa couleur change selon la boutique que tu peux viser. Dès que tu atteins la vitesse conseillée d'une nouvelle boutique, un gros message l'annonce ("SPEED 6K REACHED!").
+**Sentir la vitesse.** Quand tu cours vite, le champ de vision s'élargit, des traits de vitesse défilent sur les bords et une traînée colorée te suit. Un message s'affiche quand tu atteins la vitesse d'une nouvelle boutique.
 
-**Les cartes.** Nouveau design façon carte à collectionner :
-- un cadre métallisé à la couleur de la rareté, ou de la finition (or, arc-en-ciel, matière noire…) ;
-- le nom et le revenu en haut ;
-- le portrait de la créature sur un halo ;
-- un ruban de rareté avec des étoiles et un encart finition et note ;
-- le numéro (#012/046) et le set ;
-- une étiquette "GRADE 10" façon carte gradée.
+**Les cartes.**
+- **46 cartes**, 7 raretés (Common à Secret), chacune avec son illustration dessinée (toast, chaussette philosophe, cookie capitaine, chat galaxie...). Aperçu dans `docs/card-art.png`.
+- Design façon carte à collectionner : cadre à la couleur de la rareté ou de la mutation, nom et revenu en haut, illustration, ruban de rareté avec étoiles, encart mutation et note, numéro (#012/046) et set, étiquette "GRADE 10" façon carte gradée.
+- **Mutations** tirées quand la carte apparaît : Holo x1.5, Gold x2.5, Diamond x3.5, Rainbow x5, Dark Matter x10, et deux de saison, Haunted et Frozen (x4).
+- **Note** de 1 à 10 au GRADING LAB : de x0.5 (Poor) à x2.5 (GEM MINT 10).
+- **Revente** : 25 secondes du revenu de la carte, et moitié moins si elle n'est pas notée. C'est volontairement bas : une carte rapporte bien plus en restant posée.
 
-Aperçu dans `docs/cards.png`.
+**Index** : toutes les cartes, cachées tant que tu ne les as pas trouvées, avec la boutique où elles apparaissent et leurs chances. Chaque carte découverte donne +1 % de cash pour toujours. En plus, des **paliers** avec récompense à réclamer : 5 cartes (sac de cash), 10 (Silver Pack), 15 (+5 % de cash pour toujours), 20 (Gold Pack), 25 (+10 %), 30 (Diamond Pack), 40 (+25 %), 46 (Cosmic Pack).
 
+**Rebirth** : le premier coûte 300K $ (avant c'était 2M), puis x6 à chaque fois. Il remet à zéro le cash, la Speed, le tapis et les cartes posées, mais tu gardes les supports achetés. En échange : +50 % de cash et +25 % de Speed pour toujours, et un nouvel étage dans ta base au 1er et au 3e rebirth.
 
-- **46 cartes**, 7 raretés (Common à Secret). Chaque carte a sa créature en 3D, générée à partir de la carte : forme du corps, yeux, bouche, accessoires selon la rareté (feuille, chapeau, cornes, ailes, couronne et cape, auréole, aura pour les Secret), matière selon la finition (or, glace, hanté, arc-en-ciel…).
-- **Finitions** tirées quand la carte apparaît : Holo x1.5, Gold x2.5, Rainbow x5, Dark Matter x10, et deux finitions de saison, Haunted et Frozen (x4).
-- **Note de condition** 1 à 10 tirée au labo : de x0.5 (Poor) à x2.5 (GEM MINT 10).
-- **Index** : toutes les créatures, en silhouette noire tant que tu ne les as pas trouvées. Pour chacune : son revenu, la première boutique où elle peut apparaître, la boutique où elle est la plus fréquente et sa chance par présentoir (par exemple "Shop 6+, best 9, 1 in 2K"). Les cartes rares n'apparaissent que dans les dernières boutiques. Filtres par rareté. Chaque carte différente découverte donne +1 % de cash, pour toujours.
-- **Rebirth** : remet à zéro le cash, la Speed, les tapis et les cartes. En échange, tu gagnes pour toujours +50 % de cash, +25 % de Speed gagnée et un emplacement de gradation en plus.
-- **Récompenses quotidiennes** sur un cycle de 7 jours, une récompense différente par jour : sac de cash, boost de Speed, pack Rare, tas de cash, pack Epic, méga Speed, et le jour 7 une Legend Box (carte Legendary + cash). Les montants suivent ton revenu et ton tapis. Si tu rates plus de 48 h, la série repart au jour 1. Tout se règle dans `Config.DailyRewards`.
-- **Events serveur** toutes les 8 à 12 minutes : Holo Storm, Golden Hour, Restock Rush, Lucky Moon, Sleepy Guards, plus Blood Moon pendant Halloween et Blizzard pendant l'hiver.
-- **Sets saisonniers datés** qui s'activent tout seuls : Spooky Set (1er octobre au 5 novembre, donc actif dès la sortie), Frost Set (10 décembre au 8 janvier), Bloom Set (printemps), Heatwave Set (été). Les cartes d'un set ne sortent que pendant sa fenêtre, après elles deviennent introuvables. L'ambiance lumineuse change aussi avec la saison.
-- Classements mondiaux dans le hub : Top Cash/s et Top Speed.
-- **Friend Boost** : +10 % de cash par ami présent dans le serveur (max +50 %), affiché en bas à gauche, avec une carte dans le shop et un bouton pour inviter.
-- **Codes** : zone de saisie tout en bas du shop. Les codes se gèrent dans `Config.Codes` (cash, Speed ou carte, avec date d'expiration possible). Codes fournis : RELEASE, SPOOKY (jusqu'au 5 novembre), THANKYOU.
-- **Prévision** en bas à droite, au-dessus des multiplicateurs : le prochain event et dans combien de temps.
+**Le reste** :
+- **Récompenses quotidiennes** sur 7 jours (cash, Speed, packs, et une Legend Box le jour 7). Si tu rates plus de 48 h, la série repart au jour 1.
+- **Events serveur** toutes les 8 à 12 minutes : Holo Storm, Golden Hour, Restock Rush, Lucky Moon, Sleepy Guards, plus Blood Moon pendant Halloween et Blizzard l'hiver. Ils s'affichent dans une petite bannière propre sous les onglets, avec une icône, la couleur de l'event et le temps restant.
+- **Sets saisonniers datés** qui s'activent tout seuls : Spooky Set (1er octobre au 5 novembre), Frost Set, Bloom Set, Heatwave Set.
+- Classements mondiaux (Top Cash/s et Top Speed), **Friend Boost** (+10 % de cash par ami présent, max +50 %), **codes** (RELEASE, SPOOKY, THANKYOU, réglables dans `Config.Codes`).
+- **Ramassage du cash** : des pièces volent jusqu'à ton compteur, qui grossit un instant, avec un son et le gain affiché.
 
 ## Monétisation
 
-**Game Passes** : VIP (x1.5 cash et tag), 2x Cash (affiché "X2 Money" à droite de l'écran), 2x Training, 2x Grading, +2 Grading Slots, Auto Collect, x2 Luck (meilleure note sur deux tirages, affiché "X2 Luck" à droite).
+**Game Passes** : VIP (x1.5 cash et tag), 2x Cash ("X2 Money" à droite de l'écran), 2x Training, Half-Price Grading (noter coûte moitié prix), +2 Display Cases (deux supports en plus, gratuits), Auto Collect, x2 Luck (meilleure note sur deux tirages et packs plus chanceux, "X2 Luck" à droite).
 
 **Developer Products** :
-- **Starter Pack** : une carte Legendary ou mieux garantie, 15 min de cash et 15 min de Speed. Achetable une seule fois, mis en avant à droite de l'écran tant que tu ne l'as pas.
-- **Skip Rebirth** : +1 rebirth sans rien perdre, proposé dans la fenêtre Rebirth à côté du bouton gratuit.
-- **Mystery Pack** (Epic 70 %, Legendary 25 %, Mythic 4,6 %, Secret 0,4 %, chances affichées dans le shop).
-- **Cash** (en premier dans le shop) : Cash Bag (10 min de revenu), Cash Vault (1 h), Cash Mountain (6 h), avec le montant que tu vas recevoir affiché sur chaque pack.
-- Freeze Guards (tous les gardiens gelés 30 s pour tout le serveur), Treadmill +1 Level, Speed Boost et Mega Speed (10 min et 1 h de ton tapis), Grade All Now, Server Luck x2 pour tout le serveur pendant 15 min, Cash Bag et Cash Vault.
-- Sous la barre de vitesse, trois boutons rapides comme dans les références : +10 min Speed, +1 hour Speed, +1 Treadmill.
+- **Starter Pack** : une carte Legendary ou mieux, 15 min de cash et 15 min de Speed. Une seule fois par joueur.
+- **Skip Rebirth** : +1 rebirth sans rien perdre.
+- **Mystery Pack** (Epic 70 %, Legendary 25 %, Mythic 4,6 %, Secret 0,4 %, chances affichées).
+- **Restock Packs** : remplit tout de suite ton stock au stand CARD PACKS.
+- **Cash** : Cash Bag (10 min de revenu), Cash Vault (1 h), Cash Mountain (6 h), avec le montant reçu affiché.
+- Freeze Guards (30 s pour tout le serveur), Treadmill +1 Level, Speed Boost et Mega Speed, Server Luck x2 pour tout le serveur pendant 15 min.
+- Sous la barre de vitesse, trois boutons rapides : +10 min Speed, +1 hour Speed, +1 Treadmill.
 
 Tous les achats sont traités de façon sûre : un achat n'est validé auprès de Roblox qu'une fois livré et sauvegardé, et un même reçu n'est jamais livré deux fois (testé).
 
-Repère sur les prix : Steal an Egg vend son X2 Money 399 R$ et son X2 Growth 467 R$ (sources plus bas). Pour démarrer, je te conseille plutôt des prix un peu plus bas, le temps d'avoir des joueurs :
+Repère sur les prix : Steal an Egg vend son X2 Money 399 R$ et son X2 Growth 467 R$ (sources plus bas). Pour démarrer, je te conseille des prix un peu plus bas, le temps d'avoir des joueurs :
 
 | Article | Prix suggéré (mon avis) |
 |---|---|
 | VIP | 299 R$ |
 | 2x Cash | 349 R$ |
 | 2x Training | 249 R$ |
-| Treadmill +1 Level | 25 R$ |
-| Freeze Guards | 79 R$ |
-| 2x Grading | 199 R$ |
-| +2 Grading Slots | 149 R$ |
+| Half-Price Grading | 149 R$ |
+| +2 Display Cases | 149 R$ |
 | Auto Collect | 99 R$ |
 | x2 Luck | 199 R$ |
+| Treadmill +1 Level | 25 R$ |
+| Freeze Guards | 79 R$ |
 | Starter Pack | 49 R$ |
 | Skip Rebirth | 149 R$ |
 | Speed Boost / Mega | 29 / 129 R$ |
-| Grade All Now | 49 R$ |
+| Restock Packs | 39 R$ |
 | Server Luck x2 | 99 R$ |
 | Mystery Pack | 79 R$ |
 | Cash Bag / Vault / Mountain | 29 / 129 / 399 R$ |
 
 ## L'interface
 
-Refaite sur le modèle de tes captures (la même disposition que la plupart des simulateurs) :
-- **En haut** : trois gros onglets, Shop (rouge), My Base (bleu, plus grand, te ramène à ta base) et Upgrades (vert).
-- **À gauche** : le bandeau Daily Rewards avec sa pastille "!" et la grille 2x2 Shop, Pass, Rebirth, Index.
-- **À droite** : Starter Pack (cadeau et prix), X2 Money et X2 Luck avec leur prix en Robux. Ils disparaissent une fois achetés.
-- **En bas à gauche** : le nombre de rebirths, ta Speed, ton cash en gros avec un "+" qui ouvre le shop, ton revenu et le Friend Boost.
-- **En bas au centre** : la barre de vitesse (ta Speed et celle conseillée pour la prochaine boutique), le multiplicateur de Speed au-dessus, et les trois boutons de boost en dessous.
-- **En bas à droite** : les multiplicateurs (cash, Speed, chance) et la prévision du prochain event.
-- Plus de bandeau "Spooky Set" au milieu de l'écran. Une pastille n'apparaît sous les onglets que pendant un event.
+- **En haut** : Shop (rouge), My Base (bleu) et Upgrades (vert). En dessous, la bannière de l'event en cours.
+- **À gauche** : Daily Rewards et la grille Shop, Pass, Rebirth, Index.
+- **À droite** : Starter Pack, X2 Money et X2 Luck avec leur prix en Robux (ils disparaissent une fois achetés).
+- **En bas à gauche** : rebirths, bouton STORAGE, Speed, cash avec un "+", revenu et Friend Boost.
+- **En bas au centre** : la barre de vitesse et les trois boutons de boost.
+- **En bas à droite** : les multiplicateurs, le prochain refresh des boutiques et le prochain event.
 
-Toutes les icônes sont de vrais petits objets 3D (panier, ticket, flèches de rebirth, livre, cadeau, caisse, billets, trèfle, éclair…) affichés dans l'interface, sans image à uploader. La police est Fredoka One partout, en blanc avec un gros contour. Les tuiles ont des dégradés saturés en diagonale, des reflets en biais et un contour épais.
+Fenêtres : Shop, Game Passes, Daily Rewards, Rebirth (avec les étages débloqués), Index (avec les paliers à réclamer), Upgrades, **Grading** (la carte en main, le prix, les chances de chaque note, GRADE puis REGRADE), **Packs** (les 5 packs, stock, chances, carte bonus, barre de chance accumulée, prochain réassort), **Storage** et l'ouverture animée des packs.
 
-Les fenêtres :
-- **Shop** : le Mystery Card Pack avec ses chances par rareté, le Limited Starter Pack avec son contenu, 8 boosts, le Friend Boost, et la zone de codes tout en bas.
-- **Game Passes** : une tuile par pass avec son icône, sa description et son prix (OWNED une fois acheté).
-- **Daily Rewards** : jours 1 à 6 en grille et le jour 7 en grand avec "OP". Chaque jour affiche CLAIMED, CLAIM, LOCKED ou le temps restant.
-- **Rebirth** : "Rebirth 4, X3 Money" vers "Rebirth 5, X3.5 Money", la condition avec sa barre de progression, puis Rebirth OU Skip [keep your stats] en Robux.
-- **Upgrades** : le tapis (niveau, look actuel et suivant, amélioration en cash ou en Robux), les vitrines, les emplacements du labo.
-- **Index**, **Grading Lab** et le panneau du tapis reprennent le même style.
+**Icônes et illustrations** : les icônes (rebirth, index, shop, pass, cadeau, cash...) et les 46 illustrations de cartes sont de vraies images dessinées, regroupées dans 5 planches dans `assets/`. Tant que tu ne les as pas uploadées, le jeu utilise les versions faites en code (icônes 3D et portraits simples), donc rien ne casse. Pour les mettre :
+1. Dans Studio : **Window > Asset Manager > Images > Bulk Import**, sélectionne les 5 fichiers de `assets/` (cards_1, cards_2, cards_3, icons_1, icons_2).
+2. Attends la validation de Roblox, puis clic droit sur chaque image > **Copy ID to Clipboard**.
+3. Colle chaque ID dans `Config.Images`, sous la forme `"rbxassetid://123456789"`, dans le bon ordre (cards_1, cards_2, cards_3 puis icons_1, icons_2).
+
+Les images sont générées par `tools/art/make_art.py` (Python, numpy, pillow, scipy). Si tu changes une carte ou une icône, relance-le : il refait les planches et `src/shared/ImageAtlas.luau`.
+
+**Sons et musique** : clic, cash, vol, attrapé, amélioration, pack, révélation, event. Par défaut ce sont des sons livrés avec Roblox (`rbxasset://sounds/...`). Je n'ai pas pu les écouter : vérifie-les dans Studio et remplace-les par des sons du Creator Store si besoin (`Config.Sounds`). Pour la musique, ajoute des IDs dans `Config.Music`, elles passent en boucle.
 
 ## Le style
 
-Tout est construit en briques à picots :
-- **Les bases** : refaites (voir `docs/base-outside.png`). Un socle sombre avec un liseré lumineux, des murs vitrés façon galerie avec poteaux et rambarde lumineuse, un mur du fond plus haut avec une grande enseigne, des tours d'angle et une entrée avec deux pylônes, un auvent éclairé et un tapis rouge. Les enseignes sont dans le style de l'interface et affichent le nom du joueur, le revenu de la base en direct et le nombre de cartes. La disposition des cartes n'a pas changé.
-- **Les boutiques** : façade avec pilastres, corniche, enseigne lumineuse, vitrines avec des affiches de cartes et auvent rayé. À l'intérieur, un sol en damier, des étagères de boosters, des affiches et des plafonniers.
-- **Le décor de chaque boutique** suit son thème : bornes d'arcade, fontaine, bibliothèques, colonnes, coffre-fort, nuages, planètes…
-- **La lumière** : en Halloween, une lumière de fin d'après-midi orangée (plus de nuit sombre).
+- **Les bases** : socle sombre avec liseré lumineux, murs vitrés, tours d'angle, auvent et tapis rouge. Les enseignes ont un fond en dégradé à la couleur de la base avec un gros texte blanc.
+- **Les étages** : dalle, garde-corps vitrés, colonnes et panneau "FLOOR 2/3".
+- **Les supports** : des podiums ronds avec un anneau lumineux à la couleur de la rareté, un cadenas quand ils sont verrouillés.
+- **Les stands** : comptoir, auvent, enseigne et décor propre à chacun (scanner et loupe pour le GRADING LAB, présentoirs de packs pour CARD PACKS).
+- **Les boutiques** : façade avec enseigne lumineuse, vitrines et auvent rayé, décor intérieur selon le thème.
+- **Les panneaux** (arches de zone, enseignes, sortie) : même style que l'interface, plus de texte brut.
 
 ## Panneau admin ("admin abuse")
 
@@ -186,21 +189,22 @@ Le créateur du jeu voit automatiquement un bouton ADMIN. Tu peux aussi ajouter 
 
 ## Ce qu'il faut faire en priorité pour que ça marche
 
-- **Les illustrations des cartes.** Chaque carte a maintenant sa créature 3D, mais la face de la carte reste un design généré (dégradé, motif et monogramme). Une vraie illustration par carte ferait encore mieux : ajoute-la dans `src/shared/Cards.luau` (champ `Image = "rbxassetid://..."`). N'utilise pas de personnages sous droits (Pokémon, etc.).
-- **Des sons** : vol, alerte du gardien, révélation de la note, collecte. Je n'en ai pas mis parce que je ne peux pas vérifier les IDs d'assets.
-- **La promo** : TikTok et Shorts de poursuites et de révélations "GEM MINT 10", pubs Roblox. Sans joueurs, il n'y a pas de revenus.
+- **Uploader les 5 images** (voir plus haut) : c'est ce qui donne le rendu final aux cartes et aux icônes.
+- **Vérifier les sons** dans Studio et ajouter une musique.
+- **La promo** : TikTok et Shorts de poursuites, d'ouvertures de packs et de "GEM MINT 10". Sans joueurs, il n'y a pas de revenus.
 
 ## Ce qui a été testé, et ce qui ne l'a pas été
 
 J'ai écrit une simulation du moteur Roblox (joueurs, temps, sauvegarde, achats) et j'ai fait tourner le vrai code du jeu dedans.
 
 Ce qui a été vérifié :
-- Arrivée d'un joueur, vol, poursuite, évasion, livraison au labo, gradation, exposition, revenu et collecte.
-- Tapis de course (monter, course automatique, gain selon le niveau, descendre avec X), capture par un gardien (la carte disparaît), Freeze Guards, carte lâchée après une claque et ramassée par un autre joueur, codes.
-- Récompenses quotidiennes : jour 1, double réclamation refusée, carte du jour 3 envoyée au labo, retour au jour 1 après le jour 7, série cassée après 48 h.
-- Achats Robux (sans double livraison), vente, vitrines, rebirth, droits admin, sauvegarde puis reconnexion, et 5 minutes de jeu à 3 joueurs.
-- Côté interface : chaque bouton cliqué, chaque panneau ouvert, sans erreur. J'ai aussi écrit un moteur de rendu pour voir l'interface et les icônes 3D comme elles s'afficheront, et j'ai comparé chaque fenêtre avec tes captures (aperçus dans `docs/`).
-- La difficulté des gardiens a été mesurée sur les 10 zones et 3 présentoirs différents.
+- Arrivée d'un joueur, vol, poursuite, évasion, carte posée toute seule sur un support, revenu et collecte.
+- Supports : achat, PICK UP, PLACE, vente avec confirmation, réserve (reprendre, vendre), étages après rebirth.
+- GRADING LAB : prix, note, regrade. Packs : achat, stock, carte bonus, chance accumulée, réassort. Paliers de l'Index.
+- Refresh de la map : les joueurs dans les boutiques rentrent, ceux de la zone sûre ne bougent pas, les présentoirs changent.
+- Tapis (monter, course automatique, bouton d'amélioration), capture par un gardien (la carte disparaît et une autre réapparaît), Freeze Guards, claques, codes, récompenses quotidiennes.
+- Achats Robux (sans double livraison), rebirth, droits admin, sauvegarde puis reconnexion (avec migration des anciennes sauvegardes), 5 minutes de jeu à 3 joueurs.
+- Côté interface : chaque bouton cliqué, chaque panneau ouvert, sans erreur, avec et sans les images uploadées. Aperçus dans `docs/`.
 
 Ce que je n'ai **pas** pu vérifier, parce que je n'ai pas accès à Roblox lui-même :
 - Le rendu exact dans Roblox (mes aperçus sont une reproduction : les polices, les ombres et les ViewportFrames peuvent légèrement différer).
@@ -212,22 +216,26 @@ Fais une vraie session de test dans Studio (avec 2 joueurs via Test > Clients an
 ## Structure du code
 
 ```
-src/shared/Config.luau        réglages : zones, vitesse, prix, events, passes, produits
-src/shared/Cards.luau         les 46 cartes, raretés, finitions, notes, saisons
-src/shared/CardArt.luau       dessin des cartes (3D et interface)
-src/shared/Entity.luau        la créature 3D de chaque carte
+src/shared/Config.luau        réglages : zones, vitesse, prix, packs, grading, étages, events, sons, images
+src/shared/Cards.luau         les 46 cartes, raretés, mutations, notes, saisons
+src/shared/CardArt.luau       face des cartes (3D et interface)
+src/shared/ImageAtlas.luau    position des images dans les planches (généré)
 src/shared/Odds.luau          chances d'apparition par boutique (Index)
-src/shared/Nameplate.luau     étiquette nom / rareté / revenu au-dessus des créatures
 src/server/World/MapBuilder   génération de la map
-src/server/Services/          sauvegarde, zones et gardiens, labo, galerie, tapis, events, achats...
-src/client/Main.client.luau   HUD et fenêtres
-src/client/UI/Kit.luau        tuiles, boutons, prix Robux, barres (le style de l'interface)
-src/client/UI/Icons3D.luau    les icônes 3D de l'interface
-src/client/SpeedFX.client     sensation de vitesse, bande du tapis, objets en orbite
-src/client/                   tapis, prompts et effets côté joueur
+src/server/World/CardDisplay  grandes cartes 3D, aura et effets de mutation
+src/server/World/Showcase     podiums des cartes
+src/server/World/GuardModel   gardiens et vendeurs
 src/server/World/TreadmillModels  les 9 tapis en 3D
-src/server/World/Stands       les stands UPGRADES et SELL CARDS
+src/server/World/Stands       stands UPGRADES, GRADING LAB et CARD PACKS
 src/server/World/Signs        enseignes au style de l'interface
+src/server/Services/          sauvegarde, zones et gardiens, galerie, grading, packs, tapis, events, achats...
+src/client/Main.client.luau   HUD et fenêtres
+src/client/UI/Kit.luau        tuiles, boutons, prix Robux, barres
+src/client/UI/Icons3D.luau    icônes (image si uploadée, sinon modèle 3D)
+src/client/UI/Sounds.luau     sons et musique
+src/client/SpeedFX.client     sensation de vitesse, bande du tapis, objets en orbite
+tools/art/                    générateur des images (cartes et icônes)
+assets/                       les 5 planches à uploader
 ```
 
 ## Gagner de l'argent réel (DevEx)
