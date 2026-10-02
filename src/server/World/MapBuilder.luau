@@ -1,12 +1,10 @@
 --[[
 	Construit toute la map, en style briques (picots).
 
-	HUB (zone sûre, z < 100) :
-	  - 8 galeries de joueurs façon musée (4 à gauche, 4 à droite)
-	  - le Grading Lab et la Training Track au centre
-	  - spawn, fontaine, classements, arbres, bancs, lampadaires
-	ROUTE (z > 100) : une rue droite avec 10 boutiques thématiques.
-	  Avant chaque zone : un grand panneau avec la vitesse minimum, puis un portail.
+	ZONE SÛRE (z < 0) : la rue des bases. 8 bases de joueurs (4 de chaque côté),
+	  chacune avec son tapis de course, ses présentoirs et sa machine de gradation.
+	ROUTE (z > 0) : la suite de la même rue, avec 10 boutiques thématiques.
+	  Avant chaque zone : un panneau avec la vitesse conseillée.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -16,6 +14,7 @@ local Format = require(ReplicatedStorage.Shared.Format)
 local Cards = require(ReplicatedStorage.Shared.Cards)
 local CardArt = require(ReplicatedStorage.Shared.CardArt)
 local Props = require(script.Parent.Props)
+local Showcase = require(script.Parent.Showcase)
 
 local MapBuilder = {}
 
@@ -25,13 +24,13 @@ local GOLD = Props.GOLD
 local GRASS = Color3.fromRGB(110, 205, 80)
 local part = Props.part
 
-MapBuilder.HubEdgeZ = 100 -- au-delà, on est sur la route
+MapBuilder.HubEdgeZ = 0 -- au-delà, on quitte la zone sûre des bases
 MapBuilder.ZoneLength = 200
 MapBuilder.RoadHalfWidth = 20
 MapBuilder.ZoneHalfWidth = 100
 
 function MapBuilder.ZoneGateZ(i: number): number
-	return 120 + (i - 1) * MapBuilder.ZoneLength
+	return 20 + (i - 1) * MapBuilder.ZoneLength
 end
 
 function MapBuilder.ZoneAt(z: number): number
@@ -144,112 +143,167 @@ local function building(cf: CFrame, width: number, depth: number, height: number
 end
 
 --------------------------------------------------------------------
--- GALERIES DES JOUEURS (façon musée)
+-- BASES DES JOUEURS
+-- Repère local : origine au milieu de l'entrée, -Z = vers l'intérieur.
+-- Devant : tapis de course (droite) et dalle de collecte (gauche).
+-- Milieu : 16 présentoirs. Fond : machine de gradation.
 --------------------------------------------------------------------
-local GALLERY_W = 50
-local GALLERY_D = 44
-local CASE_COLS = { -18, -6, 6, 18 }
-local CASE_ROWS = { 14, 23, 32, 41 }
+local BASE_W = 60
+local BASE_D = 64
+local CASE_COLS = { -21, -7, 7, 21 }
+local CASE_ROWS = { 22, 31, 40, 49 }
 
-local GALLERY_COLORS = {
+local BASE_COLORS = {
 	Color3.fromRGB(255, 70, 110),
 	Color3.fromRGB(70, 160, 255),
-	Color3.fromRGB(80, 230, 140),
-	Color3.fromRGB(255, 200, 40),
+	Color3.fromRGB(80, 220, 120),
+	Color3.fromRGB(255, 190, 40),
 	Color3.fromRGB(170, 100, 255),
 	Color3.fromRGB(255, 130, 50),
-	Color3.fromRGB(0, 220, 220),
+	Color3.fromRGB(0, 210, 210),
 	Color3.fromRGB(255, 120, 220),
 }
 
-local function buildGallery(index: number, entrance: Vector3, inward: Vector3, parent: Instance)
-	local color = GALLERY_COLORS[index]
+local function buildBase(index: number, entrance: Vector3, inward: Vector3, parent: Instance)
+	local color = BASE_COLORS[index]
+	local light = color:Lerp(PAPER, 0.55)
 	local cf = CFrame.lookAt(entrance, entrance + inward)
+	local function at(x, y, d)
+		return cf * CFrame.new(x, y, -d)
+	end
 	local folder = Instance.new("Folder")
-	folder.Name = "Gallery" .. index
+	folder.Name = "Base" .. index
 	folder.Parent = parent
 
-	local at = building(cf, GALLERY_W, GALLERY_D, 18, 14, color:Lerp(PAPER, 0.72), color, Color3.fromRGB(46, 46, 60), folder)
-
-	-- tapis rouge bordé d'or, barrières de musée
-	part({ Name = "CarpetEdge", Size = Vector3.new(9, 0.1, GALLERY_D - 3), CFrame = at(0, 1.04, GALLERY_D / 2), Color = GOLD, CanCollide = false }, folder)
-	part({ Name = "Carpet", Size = Vector3.new(8, 0.12, GALLERY_D - 4), CFrame = at(0, 1.06, GALLERY_D / 2), Color = Color3.fromRGB(200, 30, 50), Material = Enum.Material.Fabric, CanCollide = false }, folder)
-	Props.stanchions(at(-5, 1, 9).Position, at(-5, 1, GALLERY_D - 5).Position, folder)
-	Props.stanchions(at(5, 1, 9).Position, at(5, 1, GALLERY_D - 5).Position, folder)
-
-	-- plafonniers, appliques, cadres, plantes
-	Props.ceilingLights(at(0, 18.6, 2), GALLERY_W - 6, GALLERY_D - 4, folder)
-	for _, side in { -1, 1 } do
-		local inwardDir = cf.RightVector * -side
-		for _, d in { 10, 22, 34 } do
-			local p = at(side * (GALLERY_W / 2 - 2.2), 10, d).Position
-			Props.wallLamp(CFrame.lookAt(p, p + inwardDir), folder)
+	-- plateforme surélevée en damier
+	part({ Name = "Platform", Size = Vector3.new(BASE_W, 1.5, BASE_D), CFrame = at(0, 0.75, BASE_D / 2), Color = Props.INK }, folder)
+	local tile = 10
+	for i = 0, BASE_W / tile - 1 do
+		for j = 0, math.floor(BASE_D / tile) - 1 do
+			part({
+				Name = "Tile",
+				Size = Vector3.new(tile, 0.2, tile),
+				CFrame = at(-BASE_W / 2 + (i + 0.5) * tile, 1.6, 2 + (j + 0.5) * tile),
+				Color = ((i + j) % 2 == 0) and light or PAPER,
+				Studs = "top",
+			}, folder)
 		end
-		for k, d in { 16, 28 } do
-			local p = at(side * (GALLERY_W / 2 - 2.2), 9, d).Position
-			Props.frame(CFrame.lookAt(p, p + inwardDir), 5, 4, GALLERY_COLORS[(index + k + side) % #GALLERY_COLORS + 1], folder)
+	end
+	-- bordure lumineuse
+	part({ Name = "Edge", Size = Vector3.new(BASE_W + 0.6, 0.6, 0.6), CFrame = at(0, 1.5, -0.3), Color = color, Material = Enum.Material.Neon }, folder)
+
+	-- murets + piliers avec lampes (côtés et fond)
+	local wallH = 4
+	local function wall(size: Vector3, c: CFrame)
+		part({ Name = "Wall", Size = size, CFrame = c, Color = color, Studs = "all" }, folder)
+		part({ Name = "WallCap", Size = Vector3.new(size.X + 0.4, 0.6, size.Z + 0.4), CFrame = c * CFrame.new(0, size.Y / 2 + 0.3, 0), Color = PAPER, Studs = "top" }, folder)
+	end
+	wall(Vector3.new(2, wallH, BASE_D), at(-BASE_W / 2 + 1, 1.5 + wallH / 2, BASE_D / 2))
+	wall(Vector3.new(2, wallH, BASE_D), at(BASE_W / 2 - 1, 1.5 + wallH / 2, BASE_D / 2))
+	wall(Vector3.new(BASE_W, wallH, 2), at(0, 1.5 + wallH / 2, BASE_D - 1))
+	for _, x in { -BASE_W / 2 + 1, BASE_W / 2 - 1 } do
+		for _, d in { 2, BASE_D / 2, BASE_D - 1 } do
+			part({ Name = "Pillar", Size = Vector3.new(3, 8, 3), CFrame = at(x, 5.5, d), Color = PAPER, Studs = "all" }, folder)
+			local lamp = part({ Name = "PillarLamp", Size = Vector3.new(2.4, 1.6, 2.4), CFrame = at(x, 10.3, d), Color = color, Material = Enum.Material.Neon }, folder)
+			if d == BASE_D / 2 then
+				Props.light(lamp, color, 24, 1.2)
+			end
 		end
-		Props.plantPot(at(side * (GALLERY_W / 2 - 4), 1, GALLERY_D - 4).Position, folder)
-		Props.plantPot(at(side * (GALLERY_W / 2 - 4), 1, 4).Position, folder)
 	end
-	local backP = at(0, 12, GALLERY_D - 2.2).Position
-	Props.frame(CFrame.lookAt(backP, backP - cf.LookVector), 12, 6, color, folder)
 
-	-- façade : auvent, enseigne lumineuse, buissons
-	Props.awning(at(0, 15.5, -1.2) * CFrame.Angles(0, math.pi, 0), 18, color, PAPER, folder)
-	local sign = part({ Name = "Sign", Size = Vector3.new(28, 5, 0.8), CFrame = at(0, 23, -0.8), Color = INK }, folder)
-	part({ Name = "SignTrim", Size = Vector3.new(29, 6, 0.6), CFrame = at(0, 23, -0.5), Color = color, Material = Enum.Material.Neon }, folder)
-	local signLabel = surfaceText(sign, Enum.NormalId.Back, "FREE GALLERY", PAPER, 25)
+	-- arche d'entrée avec le nom du propriétaire
 	for _, side in { -1, 1 } do
-		Props.bush(at(side * 13, 0, -4).Position, Color3.fromRGB(70, 170, 70), folder)
+		part({ Name = "GatePillar", Size = Vector3.new(3, 16, 3), CFrame = at(side * 9.5, 9.5, 1.5), Color = color, Studs = "all" }, folder)
+		local orb = part({ Name = "GateOrb", Size = Vector3.new(3.4, 3.4, 3.4), Shape = Enum.PartType.Ball, CFrame = at(side * 9.5, 19.2, 1.5), Color = PAPER, Material = Enum.Material.Neon }, folder)
+		Props.light(orb, color, 18, 1)
 	end
+	local banner = part({ Name = "Banner", Size = Vector3.new(24, 5, 1.2), CFrame = at(0, 15.5, 1.5), Color = Props.INK, Studs = "top" }, folder)
+	part({ Name = "BannerTrim", Size = Vector3.new(25, 6, 0.8), CFrame = at(0, 15.5, 1.8), Color = color, Material = Enum.Material.Neon }, folder)
+	local signLabel = surfaceText(banner, Enum.NormalId.Back, "FREE BASE", PAPER, 25)
+	surfaceText(banner, Enum.NormalId.Front, "FREE BASE", PAPER, 25)
 
+	-- présentoirs
 	local cases = {}
 	local n = 0
 	for _, depth in CASE_ROWS do
 		for _, x in CASE_COLS do
 			n += 1
-			local plinth = part({ Name = "Plinth" .. n, Size = Vector3.new(5.6, 3, 3.4), CFrame = at(x, 2.5, depth), Color = INK, Studs = "top" }, folder)
-			local strip = part({
-				Name = "Strip",
-				Size = Vector3.new(5.8, 0.4, 3.6),
-				CFrame = plinth.CFrame * CFrame.new(0, 1.3, 0),
-				Color = color,
-				Material = Enum.Material.Neon,
-				CanCollide = false,
-			}, folder)
-			part({ Name = "Trim", Size = Vector3.new(5.8, 0.3, 3.6), CFrame = plinth.CFrame * CFrame.new(0, -1.35, 0), Color = GOLD }, folder)
-			local glass = part({
-				Name = "Glass",
-				Size = Vector3.new(5, 6.6, 2.8),
-				CFrame = plinth.CFrame * CFrame.new(0, 4.8, 0),
-				Color = Color3.fromRGB(200, 230, 255),
-				Material = Enum.Material.Glass,
-				Transparency = 0.75,
-			}, folder)
-			local cap = part({ Name = "Cap", Size = Vector3.new(5.4, 0.4, 3.2), CFrame = glass.CFrame * CFrame.new(0, 3.5, 0), Color = GOLD, Material = Enum.Material.Metal }, folder)
-			local label = billboard(plinth, UDim2.fromOffset(170, 38), Vector3.new(0, -0.4, 0), "", Color3.new(1, 1, 1), 40)
+			-- le présentoir regarde vers l'entrée (+Z local)
+			local show = Showcase.build(at(x, 1.7, depth), folder, "Case" .. n)
+			local label = billboard(show.Top, UDim2.fromOffset(170, 34), Vector3.new(0, -2.4, 0), "", PAPER, 45)
 			cases[n] = {
 				Index = n,
-				Plinth = plinth,
-				Strip = strip,
-				Glass = glass,
-				Cap = cap,
+				Show = show,
+				Plinth = show.Base,
 				Label = label,
-				CardCFrame = plinth.CFrame * CFrame.new(0, 4.6, 0) * CFrame.Angles(0, math.pi, 0),
+				CardCFrame = show.CardCFrame,
 			}
 		end
 	end
 
-	local collect = part({
-		Name = "Collect",
-		Size = Vector3.new(10, 0.4, 5),
-		CFrame = at(0, 1.2, 5),
-		Color = Color3.fromRGB(80, 230, 140),
-		Material = Enum.Material.Neon,
-	}, folder)
-	local collectLabel = billboard(collect, UDim2.fromOffset(220, 56), Vector3.new(0, 4.2, 0), "", Color3.fromRGB(80, 230, 140), 80)
-	billboard(collect, UDim2.fromOffset(170, 24), Vector3.new(0, 2.4, 0), "STEP TO COLLECT", PAPER, 40)
+	-- dalle de collecte (devant à gauche)
+	local collect = part({ Name = "Collect", Size = Vector3.new(10, 0.4, 7), CFrame = at(-17, 1.9, 9), Color = Color3.fromRGB(80, 230, 140), Material = Enum.Material.Neon }, folder)
+	part({ Name = "CollectRim", Size = Vector3.new(11, 0.3, 8), CFrame = at(-17, 1.75, 9), Color = Props.GOLD }, folder)
+	local collectLabel = billboard(collect, UDim2.fromOffset(220, 50), Vector3.new(0, 4, 0), "", Color3.fromRGB(80, 230, 140), 70)
+	billboard(collect, UDim2.fromOffset(160, 22), Vector3.new(0, 2.2, 0), "STEP TO COLLECT", PAPER, 35)
+
+	-- tapis de course (devant à droite). On court vers l'entrée.
+	local tmFolder = Instance.new("Folder")
+	tmFolder.Name = "Treadmill"
+	tmFolder.Parent = folder
+	local tx, td = 17, 11
+	local tmBase = part({ Name = "TreadmillBase", Size = Vector3.new(9, 1.4, 16), CFrame = at(tx, 2.4, td), Color = Props.INK, Studs = "top" }, tmFolder)
+	local belt = part({ Name = "Belt", Size = Vector3.new(6.5, 0.3, 14), CFrame = at(tx, 3.2, td), Color = Color3.fromRGB(35, 35, 45), Material = Enum.Material.Fabric }, tmFolder)
+	local frames = {}
+	for _, side in { -1, 1 } do
+		table.insert(frames, part({ Name = "Side", Size = Vector3.new(1, 1.6, 16), CFrame = at(tx + side * 4, 3.2, td), Color = Color3.fromRGB(170, 175, 190), Studs = "top" }, tmFolder))
+		table.insert(frames, part({ Name = "Rail", Size = Vector3.new(0.6, 0.6, 8), CFrame = at(tx + side * 4, 6.4, td - 3), Color = Color3.fromRGB(200, 205, 215), Material = Enum.Material.Metal }, tmFolder))
+		table.insert(frames, part({ Name = "RailPost", Size = Vector3.new(0.6, 3.4, 0.6), CFrame = at(tx + side * 4, 4.6, td - 6.7), Color = Color3.fromRGB(200, 205, 215), Material = Enum.Material.Metal }, tmFolder))
+		-- cristaux (visibles aux hauts niveaux)
+		table.insert(frames, part({ Name = "Crystal", Size = Vector3.new(1.4, 4, 1.4), CFrame = at(tx + side * 5.2, 4.5, td + 4) * CFrame.Angles(0, 0, math.rad(side * 18)), Color = color, Material = Enum.Material.Neon, Transparency = 1, CanCollide = false }, tmFolder))
+		table.insert(frames, part({ Name = "Crystal", Size = Vector3.new(1, 3, 1), CFrame = at(tx + side * 5.4, 4, td - 2) * CFrame.Angles(0, 0, math.rad(side * 28)), Color = color, Material = Enum.Material.Neon, Transparency = 1, CanCollide = false }, tmFolder))
+	end
+	local console = part({ Name = "Console", Size = Vector3.new(7, 5, 1.4), CFrame = at(tx, 5, td - 7.6), Color = Color3.fromRGB(170, 175, 190), Studs = "all" }, tmFolder)
+	local screen = part({ Name = "Screen", Size = Vector3.new(5, 2.2, 0.2), CFrame = at(tx, 5.8, td - 6.85), Color = Color3.fromRGB(80, 255, 140), Material = Enum.Material.Neon }, tmFolder)
+	local glow = part({ Name = "Glow", Size = Vector3.new(7, 0.2, 15), CFrame = at(tx, 1.85, td), Color = color, Material = Enum.Material.Neon, CanCollide = false }, tmFolder)
+	-- le joueur se place ici et regarde vers la console (l'entrée)
+	local spotPos = at(tx, 5, td + 2).Position
+	local consolePos = at(tx, 5, td - 10).Position
+	local spot = CFrame.lookAt(spotPos, Vector3.new(consolePos.X, spotPos.Y, consolePos.Z))
+	console:SetAttribute("BaseIndex", index)
+	console:SetAttribute("Spot", spot)
+	console:SetAttribute("BeltTop", 3.35)
+	game:GetService("CollectionService"):AddTag(console, "Treadmill")
+
+	-- panneau d'amélioration au-dessus de la console (lisible depuis le tapis et depuis la rue)
+	local signCF = at(tx, 10.6, td - 8.2)
+	part({ Name = "SignPost", Size = Vector3.new(0.8, 3, 0.8), CFrame = at(tx, 8.2, td - 8.2), Color = Props.INK }, tmFolder)
+	local upgradeSign = part({ Name = "UpgradeSign", Size = Vector3.new(9, 4.6, 0.8), CFrame = signCF, Color = Color3.fromRGB(30, 34, 52), Studs = "top" }, tmFolder)
+	part({ Name = "UpgradeTrim", Size = Vector3.new(9.6, 5.2, 0.5), CFrame = signCF, Color = color, Material = Enum.Material.Neon }, tmFolder)
+	local upgradeLabel = surfaceText(upgradeSign, Enum.NormalId.Front, "", PAPER, 30)
+	local upgradeLabelBack = surfaceText(upgradeSign, Enum.NormalId.Back, "", PAPER, 30)
+	upgradeSign:SetAttribute("BaseIndex", index)
+	game:GetService("CollectionService"):AddTag(upgradeSign, "TreadmillSign")
+
+	-- machine de gradation (fond)
+	local machine = part({ Name = "GradingMachine", Size = Vector3.new(20, 9, 5), CFrame = at(0, 6.2, 58), Color = Color3.fromRGB(45, 50, 72), Studs = "all" }, folder)
+	part({ Name = "MachineTop", Size = Vector3.new(21, 1, 6), CFrame = at(0, 11.2, 58), Color = color, Studs = "top" }, folder)
+	local machineScreen = part({ Name = "MachineScreen", Size = Vector3.new(16, 4.6, 0.3), CFrame = at(0, 7.2, 55.4), Color = Color3.fromRGB(15, 25, 50), Material = Enum.Material.SmoothPlastic }, folder)
+	local machineLabel = surfaceText(machineScreen, Enum.NormalId.Back, "GRADING LAB", Color3.fromRGB(0, 230, 255), 25)
+	for k = -2, 2 do
+		part({ Name = "MachineSlot", Size = Vector3.new(2.4, 0.5, 0.4), CFrame = at(k * 3.2, 3.6, 55.4), Color = Color3.fromRGB(0, 255, 200), Material = Enum.Material.Neon }, folder)
+	end
+	for _, side in { -1, 1 } do
+		part({ Name = "Tube", Size = Vector3.new(9, 1.6, 1.6), Shape = Enum.PartType.Cylinder, CFrame = at(side * 11.5, 6, 58) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(150, 255, 230), Material = Enum.Material.Glass, Transparency = 0.3 }, folder)
+	end
+	local labPrompt = prompt(machine, "Open", "Grading Lab", 0, 16)
+	labPrompt.Name = "LabPrompt"
+	local machineTag = billboard(machine, UDim2.fromOffset(220, 40), Vector3.new(0, 8.5, 0), "", Color3.fromRGB(255, 220, 80), 80)
+
+	-- décor de façade
+	for _, side in { -1, 1 } do
+		Props.bush(at(side * 25, 1.5, -3).Position, Color3.fromRGB(70, 170, 70), folder)
+	end
 
 	return {
 		Index = index,
@@ -260,109 +314,22 @@ local function buildGallery(index: number, entrance: Vector3, inward: Vector3, p
 		SignLabel = signLabel,
 		Collect = collect,
 		CollectLabel = collectLabel,
-		Spawn = at(0, 4, 9) * CFrame.Angles(0, math.pi, 0),
-	}
-end
-
---------------------------------------------------------------------
--- GRADING LAB
---------------------------------------------------------------------
-local function buildLab(parent: Instance)
-	local folder = Instance.new("Folder")
-	folder.Name = "GradingLab"
-	folder.Parent = parent
-	local entrance = Vector3.new(-22, 0, -40)
-	local cf = CFrame.lookAt(entrance, entrance + Vector3.new(-1, 0, 0))
-	local blue = Color3.fromRGB(70, 160, 255)
-	local at = building(cf, 40, 34, 18, 16, Color3.fromRGB(235, 242, 252), blue, Color3.fromRGB(220, 228, 240), folder)
-
-	local sign = part({ Name = "Sign", Size = Vector3.new(30, 6, 0.6), CFrame = at(0, 24, -0.6), Color = blue }, folder)
-	surfaceText(sign, Enum.NormalId.Back, "GRADING LAB", Color3.new(1, 1, 1), 25)
-	Props.awning(at(0, 15.5, -1.2) * CFrame.Angles(0, math.pi, 0), 20, blue, PAPER, folder)
-	Props.ceilingLights(at(0, 18.6, 2), 34, 30, folder)
-
-	local counter = part({ Name = "Counter", Size = Vector3.new(24, 4, 3), CFrame = at(0, 3, 14), Color = INK, Studs = "all" }, folder)
-	part({ Name = "CounterTop", Size = Vector3.new(24.4, 0.4, 3.4), CFrame = counter.CFrame * CFrame.new(0, 2.2, 0), Color = blue, Material = Enum.Material.Neon }, folder)
-	for i, x in { -12, 0, 12 } do
-		local machine = part({ Name = "Grader" .. i, Size = Vector3.new(8, 10, 6), CFrame = at(x, 6, 28), Color = Color3.fromRGB(45, 50, 70), Studs = "all" }, folder)
-		part({ Name = "Slot", Size = Vector3.new(5, 0.6, 0.4), CFrame = machine.CFrame * CFrame.new(0, -1, 3.1), Color = Color3.fromRGB(0, 255, 200), Material = Enum.Material.Neon }, folder)
-		local screen = part({ Name = "Screen", Size = Vector3.new(6, 3, 0.2), CFrame = machine.CFrame * CFrame.new(0, 2.6, 3.05), Color = Color3.fromRGB(0, 120, 255), Material = Enum.Material.Neon }, folder)
-		Props.light(screen, Color3.fromRGB(0, 160, 255), 14, 1)
-		part({ Name = "Tube", Size = Vector3.new(6, 1.2, 1.2), Shape = Enum.PartType.Cylinder, CFrame = machine.CFrame * CFrame.new(0, 8, 0) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(150, 255, 230), Material = Enum.Material.Glass, Transparency = 0.3 }, folder)
-	end
-	for _, x in { -8, 8 } do
-		part({ Name = "Monitor", Size = Vector3.new(3, 2, 0.3), CFrame = at(x, 6.4, 14.4) * CFrame.Angles(0, math.pi, 0), Color = Color3.fromRGB(80, 255, 140), Material = Enum.Material.Neon }, folder)
-	end
-	Props.plantPot(at(-16, 1, 4).Position, folder)
-	Props.plantPot(at(16, 1, 4).Position, folder)
-	local p = prompt(counter, "Open Lab", "Grading Lab", 0, 16)
-	p.Name = "LabPrompt"
-	billboard(counter, UDim2.fromOffset(260, 40), Vector3.new(0, 5, 0), "GRADING LAB  (E)", PAPER, 60)
-	return { Folder = folder, Prompt = p, Spawn = at(0, 4, 7) }
-end
-
---------------------------------------------------------------------
--- TRAINING TRACK
---------------------------------------------------------------------
-local function buildTraining(parent: Instance)
-	local folder = Instance.new("Folder")
-	folder.Name = "TrainingTrack"
-	folder.Parent = parent
-	local originX, originZ = 30, -90
-	part({ Name = "Floor", Size = Vector3.new(54, 0.6, 108), CFrame = CFrame.new(originX + 27, 0.3, originZ + 52), Color = Color3.fromRGB(235, 100, 60), Material = Enum.Material.Slate, Studs = "top" }, folder)
-	for k = 0, 3 do
-		part({ Name = "Lane", Size = Vector3.new(0.6, 0.1, 104), CFrame = CFrame.new(originX + 6 + k * 3, 0.65, originZ + 52), Color = PAPER, CanCollide = false }, folder)
-	end
-	for _, z in { originZ + 30, originZ + 74 } do
-		part({ Name = "ArchPost", Size = Vector3.new(3, 18, 3), CFrame = CFrame.new(originX + 2, 9, z), Color = Color3.fromRGB(255, 130, 60), Studs = "all" }, folder)
-	end
-	local arch = part({ Name = "Arch", Size = Vector3.new(4, 6, 47), CFrame = CFrame.new(originX + 2, 19, originZ + 52), Color = INK }, folder)
-	surfaceText(arch, Enum.NormalId.Left, "TRAINING TRACK", Color3.fromRGB(255, 160, 80), 20)
-	surfaceText(arch, Enum.NormalId.Right, "TRAINING TRACK", Color3.fromRGB(255, 160, 80), 20)
-
-	local treadmills = {}
-	for i, t in Config.Treadmills do
-		local z = originZ + 9 + (i - 1) * 12.5
-		local x = originX + 32
-		local base = part({ Name = "Treadmill" .. i, Size = Vector3.new(16, 1.2, 8), CFrame = CFrame.new(x, 1.2, z), Color = INK, Studs = "top" }, folder)
-		local belt = part({ Name = "Belt", Size = Vector3.new(14, 0.3, 6), CFrame = CFrame.new(x, 1.95, z), Color = Color3.fromRGB(38, 38, 50), Material = Enum.Material.Fabric }, folder)
-		for _, side in { -1, 1 } do
-			part({ Name = "RailPost", Size = Vector3.new(0.6, 4, 0.6), CFrame = CFrame.new(x - 6, 4, z + side * 3.6), Color = Color3.fromRGB(200, 205, 215), Material = Enum.Material.Metal }, folder)
-			part({ Name = "Rail", Size = Vector3.new(8, 0.5, 0.5), CFrame = CFrame.new(x - 2.5, 5.6, z + side * 3.6), Color = Color3.fromRGB(200, 205, 215), Material = Enum.Material.Metal }, folder)
-		end
-		local console = part({ Name = "Console", Size = Vector3.new(1.4, 6, 7), CFrame = CFrame.new(x - 8.2, 4.2, z), Color = t.Color, Studs = "all" }, folder)
-		part({ Name = "Screen", Size = Vector3.new(0.2, 2, 4), CFrame = CFrame.new(x - 7.45, 6, z), Color = Color3.fromRGB(80, 255, 140), Material = Enum.Material.Neon }, folder)
-		part({ Name = "Stop", Size = Vector3.new(1, 3, 8), CFrame = CFrame.new(x + 8.5, 3, z), Color = INK, Transparency = 0.6 }, folder)
-		local label = billboard(console, UDim2.fromOffset(230, 56), Vector3.new(0, 5, 0), "", t.Color, 70)
-		local spot = CFrame.lookAt(Vector3.new(x - 1, 5, z), Vector3.new(x - 10, 5, z))
-		console:SetAttribute("TreadmillIndex", i)
-		console:SetAttribute("Spot", spot)
-		console:SetAttribute("BeltTop", 2.1)
-		game:GetService("CollectionService"):AddTag(console, "Treadmill")
-		treadmills[i] = {
-			Index = i,
+		Spawn = at(0, 5, 16) * CFrame.Angles(0, math.pi, 0),
+		Treadmill = {
 			Belt = belt,
-			Base = base,
+			Base = tmBase,
 			Console = console,
-			Label = label,
-			-- où se place le joueur pour s'entraîner (il regarde la console)
+			Screen = screen,
+			Glow = glow,
+			Frames = frames,
 			Spot = spot,
-		}
-	end
-	-- gradins et cônes
-	for k = 0, 3 do
-		part({
-			Name = "Bleacher",
-			Size = Vector3.new(2.5, 1 + k * 1.2, 90),
-			CFrame = CFrame.new(originX + 44 + k * 2.5, 0.5 + k * 0.6, originZ + 52),
-			Color = (k % 2 == 0) and Color3.fromRGB(70, 160, 255) or PAPER,
-			Studs = "top",
-		}, folder)
-	end
-	for k = 0, 5 do
-		part({ Name = "Cone", Size = Vector3.new(1.2, 1.6, 1.2), CFrame = CFrame.new(originX + 10, 1.4, originZ + 6 + k * 18), Color = Color3.fromRGB(255, 140, 30), Studs = "top" }, folder)
-	end
-	return { Folder = folder, Treadmills = treadmills }
+			Sign = upgradeSign,
+			SignLabels = { upgradeLabel, upgradeLabelBack },
+		},
+		Machine = machine,
+		MachineLabel = machineLabel,
+		MachineTag = machineTag,
+	}
 end
 
 --------------------------------------------------------------------
@@ -439,60 +406,45 @@ local function buildZone(i: number, zone, parent: Instance)
 	local road = MapBuilder.RoadHalfWidth
 
 	-- sol, trottoirs, route
-	part({ Name = "Ground", Size = Vector3.new(half * 2, 1, MapBuilder.ZoneLength), CFrame = CFrame.new(0, -0.5, midZ), Color = zone.Main:Lerp(PAPER, 0.35), Studs = "top" }, folder)
+	part({ Name = "Ground", Size = Vector3.new(half * 2, 1, MapBuilder.ZoneLength), CFrame = CFrame.new(0, -0.5, midZ), Color = zone.Main:Lerp(PAPER, 0.45), Studs = "top" }, folder)
 	part({ Name = "Road", Size = Vector3.new(road * 2, 0.2, MapBuilder.ZoneLength), CFrame = CFrame.new(0, 0.1, midZ), Color = Color3.fromRGB(52, 54, 68) }, folder)
 	for _, side in { -1, 1 } do
-		part({ Name = "Sidewalk", Size = Vector3.new(6, 0.5, MapBuilder.ZoneLength), CFrame = CFrame.new(side * (road + 3), 0.25, midZ), Color = Color3.fromRGB(200, 200, 210), Studs = "top" }, folder)
+		part({ Name = "Sidewalk", Size = Vector3.new(6, 0.5, MapBuilder.ZoneLength), CFrame = CFrame.new(side * (road + 3), 0.25, midZ), Color = Color3.fromRGB(205, 205, 215), Studs = "top" }, folder)
 		part({ Name = "Curb", Size = Vector3.new(0.6, 0.6, MapBuilder.ZoneLength), CFrame = CFrame.new(side * (road + 0.3), 0.3, midZ), Color = zone.Accent }, folder)
 	end
 	for k = 0, 7 do
 		part({ Name = "Dash", Size = Vector3.new(1, 0.05, 10), CFrame = CFrame.new(0, 0.22, gateZ + 12 + k * 25), Color = Color3.fromRGB(255, 220, 80), CanCollide = false }, folder)
 	end
-
-	-- murs d'enceinte
+	-- murs d'enceinte en briques
 	for _, side in { -1, 1 } do
-		part({ Name = "Fence", Size = Vector3.new(2, 24, MapBuilder.ZoneLength), CFrame = CFrame.new(side * (half + 1), 12, midZ), Color = zone.Main:Lerp(Color3.fromRGB(150, 110, 70), 0.35), Studs = "all" }, folder)
+		part({ Name = "Fence", Size = Vector3.new(2, 24, MapBuilder.ZoneLength), CFrame = CFrame.new(side * (half + 1), 12, midZ), Color = zone.Main:Lerp(Color3.fromRGB(150, 110, 70), 0.3), Studs = "all" }, folder)
 		part({ Name = "FenceTop", Size = Vector3.new(3, 1.4, MapBuilder.ZoneLength), CFrame = CFrame.new(side * (half + 1), 24.7, midZ), Color = zone.Accent, Studs = "top" }, folder)
 	end
 
-	-- PANNEAU DE VITESSE REQUISE, juste avant le portail, à droite de la route
-	local need = zone.Speed > 0 and ("REQUIRES " .. Format.short(zone.Speed) .. " SPEED") or "NO SPEED NEEDED"
-	signBoard(
-		CFrame.new(road + 13, 9, gateZ - 8) * CFrame.Angles(0, math.rad(25), 0),
-		16,
-		9,
-		INK,
-		("ZONE %d\n%s\n%s"):format(i, zone.Name:upper(), need),
-		zone.Speed > 0 and Color3.fromRGB(255, 220, 80) or Color3.fromRGB(80, 230, 140),
-		"BACK TO SAFE ZONE",
-		folder
-	)
-
-	-- portail
+	-- arche d'entrée de zone (décorative, on peut toujours passer)
 	for _, side in { -1, 1 } do
-		local w = half - road
-		part({ Name = "GateWall", Size = Vector3.new(w, 24, 2), CFrame = CFrame.new(side * (road + w / 2), 12, gateZ), Color = zone.Main:Lerp(INK, 0.3), Studs = "all" }, folder)
 		part({ Name = "Pillar", Size = Vector3.new(5, 30, 5), CFrame = CFrame.new(side * (road + 2.5), 15, gateZ), Color = zone.Accent, Studs = "all" }, folder)
 		local cap = part({ Name = "PillarLight", Size = Vector3.new(4, 2, 4), CFrame = CFrame.new(side * (road + 2.5), 31, gateZ), Color = zone.Accent, Material = Enum.Material.Neon }, folder)
 		Props.light(cap, zone.Accent, 30, 1.5)
 	end
 	local arch = part({ Name = "Arch", Size = Vector3.new(road * 2 + 10, 7, 3), CFrame = CFrame.new(0, 26.5, gateZ), Color = INK, Studs = "top" }, folder)
-	surfaceText(arch, Enum.NormalId.Front, zone.Name:upper() .. "  ·  " .. (zone.Speed > 0 and Format.short(zone.Speed) .. " SPEED" or "FREE"), zone.Accent, 20)
-	surfaceText(arch, Enum.NormalId.Back, "BACK TO SAFE ZONE", Color3.fromRGB(80, 230, 140), 20)
-	local barrier = part({
-		Name = "SpeedGate",
-		Size = Vector3.new(road * 2, 23, 1),
-		CFrame = CFrame.new(0, 11.5, gateZ),
-		Color = zone.Accent,
-		Material = Enum.Material.ForceField,
-		Transparency = zone.Speed > 0 and 0.4 or 1,
-		CanCollide = false,
-	}, folder)
-	barrier:SetAttribute("Zone", i)
-	barrier:SetAttribute("Speed", zone.Speed)
-	game:GetService("CollectionService"):AddTag(barrier, "SpeedGate")
+	surfaceText(arch, Enum.NormalId.Front, ("%d · %s"):format(i, zone.Name:upper()), zone.Accent, 20)
+	surfaceText(arch, Enum.NormalId.Back, "BACK TO YOUR BASE", Color3.fromRGB(80, 230, 140), 20)
 
-	-- lampadaires des deux côtés
+	-- PANNEAU VITESSE CONSEILLÉE, juste avant l'arche, à droite de la route
+	local rec = zone.Speed > 0 and ("RECOMMENDED SPEED\n" .. Format.short(zone.Speed)) or "NO SPEED NEEDED"
+	signBoard(
+		CFrame.new(road + 13, 9, gateZ - 8) * CFrame.Angles(0, math.rad(25), 0),
+		16,
+		9,
+		INK,
+		("ZONE %d · %s\n%s"):format(i, zone.Name:upper(), rec),
+		zone.Speed > 0 and Color3.fromRGB(255, 220, 80) or Color3.fromRGB(80, 230, 140),
+		"BACK TO YOUR BASE",
+		folder
+	)
+
+	-- lampadaires
 	for k = 0, 3 do
 		local z = gateZ + 25 + k * 50
 		Props.lampPost(Vector3.new(-road - 4, 0.5, z), zone.Accent, folder, Vector3.new(1, 0, 0))
@@ -504,64 +456,117 @@ local function buildZone(i: number, zone, parent: Instance)
 	-- LA BOUTIQUE (à droite, ouverte vers la route)
 	local shopEntrance = Vector3.new(road + 6, 0, gateZ + 100)
 	local shopCF = CFrame.lookAt(shopEntrance, shopEntrance + Vector3.new(1, 0, 0))
-	local at = building(shopCF, 70, 56, 22, 22, zone.Main:Lerp(PAPER, 0.25), zone.Accent, zone.Main:Lerp(PAPER, 0.7), folder)
+	local wall = zone.Main
+	local at = building(shopCF, 70, 56, 22, 22, wall, zone.Accent, PAPER, folder)
 
+	-- sol en damier aux couleurs de la boutique
+	for a = 0, 6 do
+		for b = 0, 4 do
+			part({
+				Name = "FloorTile",
+				Size = Vector3.new(10, 0.2, 10.8),
+				CFrame = at(-30 + a * 10, 1.1, 2.4 + b * 10.8),
+				Color = ((a + b) % 2 == 0) and zone.Accent:Lerp(PAPER, 0.55) or PAPER,
+				Studs = "top",
+			}, folder)
+		end
+	end
+
+	-- façade : pilastres, corniche, enseigne lumineuse, vitrines avec affiches de cartes, auvent
+	for _, x in { -34, -16, 16, 34 } do
+		part({ Name = "Pilaster", Size = Vector3.new(3, 22, 1.4), CFrame = at(x, 12, -0.6), Color = zone.Accent:Lerp(INK, 0.15), Studs = "all" }, folder)
+	end
+	part({ Name = "Cornice", Size = Vector3.new(72, 2, 3), CFrame = at(0, 22.5, -0.8), Color = zone.Accent, Studs = "top" }, folder)
 	local shopSign = part({ Name = "ShopSign", Size = Vector3.new(44, 7, 0.8), CFrame = at(0, 28.5, -0.8), Color = INK }, folder)
 	part({ Name = "ShopSignTrim", Size = Vector3.new(45.5, 8.5, 0.5), CFrame = at(0, 28.5, -0.4), Color = zone.Accent, Material = Enum.Material.Neon }, folder)
 	surfaceText(shopSign, Enum.NormalId.Back, zone.Name:upper(), zone.Accent, 25)
-	for _, side in { -1, 1 } do
-		part({ Name = "WindowFrame", Size = Vector3.new(15, 10, 0.3), CFrame = at(side * 21, 9, -0.05), Color = GOLD }, folder)
-		part({ Name = "Window", Size = Vector3.new(14, 9, 0.4), CFrame = at(side * 21, 9, -0.25), Color = Color3.fromRGB(180, 220, 255), Material = Enum.Material.Glass, Transparency = 0.35 }, folder)
-	end
-	Props.awning(at(0, 17.5, -1.2) * CFrame.Angles(0, math.pi, 0), 26, zone.Accent, PAPER, folder)
+	local signLight = Instance.new("SurfaceLight")
+	signLight.Face = Enum.NormalId.Back
+	signLight.Color = zone.Accent
+	signLight.Range = 18
+	signLight.Brightness = 2
+	signLight.Parent = shopSign
 
-	-- intérieur
-	Props.ceilingLights(at(0, 22.6, 2), 64, 52, folder)
-	for _, side in { -1, 1 } do
-		local inwardDir = shopCF.RightVector * -side
-		for _, d in { 12, 28, 44 } do
-			local p = at(side * 33, 12, d).Position
-			Props.wallLamp(CFrame.lookAt(p, p + inwardDir), folder)
-		end
-		for k, d in { 20, 36 } do
-			local p = at(side * 33, 9, d).Position
-			Props.frame(CFrame.lookAt(p, p + inwardDir), 6, 5, (k % 2 == 0) and zone.Accent or zone.Main, folder)
-		end
-		Props.plantPot(at(side * 30, 1, 4).Position, folder)
-		Props.plantPot(at(side * 30, 1, 52).Position, folder)
-	end
-	Props.counter(at(0, 1, 54) * CFrame.Angles(0, math.pi, 0), 16, zone.Accent, folder)
-
-	-- présentoirs : l'allée centrale reste libre pour le gardien
-	local pedestals = {}
-	local positions = { { -24, 14 }, { 24, 14 }, { -12, 22 }, { 12, 22 }, { -24, 30 }, { 24, 30 } }
-	for k = 1, Config.PedestalsPerZone do
-		local pos = positions[k]
-		local stand = part({ Name = "Stand" .. k, Size = Vector3.new(6, 3, 6), CFrame = at(pos[1], 2.5, pos[2]), Color = INK, Studs = "top" }, folder)
-		part({ Name = "StandTop", Size = Vector3.new(6.4, 0.4, 6.4), CFrame = stand.CFrame * CFrame.new(0, 1.7, 0), Color = zone.Accent, Material = Enum.Material.Neon }, folder)
-		part({ Name = "StandTrim", Size = Vector3.new(6.4, 0.4, 6.4), CFrame = stand.CFrame * CFrame.new(0, -1.3, 0), Color = GOLD }, folder)
-		Props.stanchions((stand.CFrame * CFrame.new(-4.5, -1.5, -4)).Position, (stand.CFrame * CFrame.new(-4.5, -1.5, 4)).Position, folder)
-		Props.stanchions((stand.CFrame * CFrame.new(4.5, -1.5, -4)).Position, (stand.CFrame * CFrame.new(4.5, -1.5, 4)).Position, folder)
-		pedestals[k] = {
-			Index = k,
-			Stand = stand,
-			CardCFrame = stand.CFrame * CFrame.new(0, 4.9, 0) * CFrame.Angles(0, math.pi, 0),
-		}
-	end
-
-	-- cartes géantes côté gauche : les plus belles cartes de la boutique
+	-- cartes affichées en vitrine (les meilleures de la boutique)
 	local best = 0
 	for rarity in zone.Rarity do
 		best = math.max(best, Cards.Rarities[rarity].Order)
 	end
 	local showcase = {}
 	for _, c in Cards.List do
-		if not c.Season and Cards.Rarities[c.Rarity].Order == best then
+		if not c.Season and Cards.Rarities[c.Rarity].Order >= best - 1 then
 			table.insert(showcase, c.Id)
 		end
 	end
+	for k, side in { -1, 1 } do
+		part({ Name = "WindowFrame", Size = Vector3.new(15, 11, 0.3), CFrame = at(side * 25, 9, -0.05), Color = Props.GOLD }, folder)
+		local id = showcase[((i + k) % math.max(#showcase, 1)) + 1]
+		if id then
+			local poster = CardArt.part(id, "Holo", nil, false)
+			poster.Size = Vector3.new(6, 8.4, 0.3)
+			poster.CFrame = at(side * 25, 9, -0.35) * CFrame.Angles(0, math.pi, 0)
+			poster.Parent = folder
+		end
+		part({ Name = "Window", Size = Vector3.new(14, 10, 0.3), CFrame = at(side * 25, 9, -0.7), Color = Color3.fromRGB(190, 225, 255), Material = Enum.Material.Glass, Transparency = 0.6 }, folder)
+	end
+	Props.awning(at(0, 17.5, -1.2) * CFrame.Angles(0, math.pi, 0), 26, zone.Accent, PAPER, folder)
+	-- parapet lumineux sur le toit
+	part({ Name = "Parapet", Size = Vector3.new(72, 1.6, 1), CFrame = at(0, 25, 0), Color = zone.Accent, Material = Enum.Material.Neon }, folder)
+
+	-- intérieur : plafonniers, étagères de boîtes, affiches, plantes, comptoir
+	Props.ceilingLights(at(0, 22.6, 2), 64, 52, folder)
+	for _, side in { -1, 1 } do
+		local inwardDir = shopCF.RightVector * -side
+		for _, d in { 14, 40 } do
+			local p = at(side * 32.5, 0, d).Position
+			local shelfCF = CFrame.lookAt(p, p + inwardDir)
+			part({ Name = "Shelf", Size = Vector3.new(10, 9, 2), CFrame = shelfCF * CFrame.new(0, 5.5, 0), Color = Color3.fromRGB(120, 80, 50), Studs = "all" }, folder)
+			for row = 0, 2 do
+				for b = 0, 3 do
+					part({
+						Name = "Booster",
+						Size = Vector3.new(1.8, 2, 1.2),
+						CFrame = shelfCF * CFrame.new(-3.6 + b * 2.4, 2.6 + row * 2.9, -1.4),
+						Color = ((b + row) % 3 == 0) and zone.Accent or (((b + row) % 3 == 1) and zone.Main or Props.GOLD),
+						Studs = "top",
+					}, folder)
+				end
+			end
+		end
+		-- affiche de carte au mur
+		local wp = at(side * 32.8, 11, 27).Position
+		local id = showcase[((i + side + 3) % math.max(#showcase, 1)) + 1]
+		if id then
+			local poster = CardArt.part(id, "Normal", nil, false)
+			poster.Size = Vector3.new(7, 9.8, 0.3)
+			poster.CFrame = CFrame.lookAt(wp, wp + inwardDir) * CFrame.Angles(0, math.pi, 0)
+			poster.Parent = folder
+		end
+		Props.wallLamp(CFrame.lookAt(at(side * 32.8, 16, 14).Position, at(side * 32.8, 16, 14).Position + inwardDir), folder)
+		Props.wallLamp(CFrame.lookAt(at(side * 32.8, 16, 40).Position, at(side * 32.8, 16, 40).Position + inwardDir), folder)
+		Props.plantPot(at(side * 29, 1, 4).Position, folder)
+		Props.plantPot(at(side * 29, 1, 52).Position, folder)
+	end
+	Props.counter(at(0, 1, 54) * CFrame.Angles(0, math.pi, 0), 16, zone.Accent, folder)
+	Props.cardBoxes(at(10, 1, 53).Position, { zone.Accent, zone.Main, Props.GOLD }, folder)
+
+	-- présentoirs (design selon la rareté de la carte posée dessus)
+	local pedestals = {}
+	local positions = { { -24, 14 }, { 24, 14 }, { -12, 24 }, { 12, 24 }, { -24, 34 }, { 24, 34 } }
+	for k = 1, Config.PedestalsPerZone do
+		local pos = positions[k]
+		local show = Showcase.build(at(pos[1], 1.2, pos[2]), folder, "Stand" .. k)
+		pedestals[k] = {
+			Index = k,
+			Show = show,
+			Stand = show.Base,
+			CardCFrame = show.CardCFrame,
+		}
+	end
+
+	-- cartes géantes côté gauche de la rue
 	for k, z in { gateZ + 45, gateZ + 155 } do
-		local id = showcase[((i + k) % #showcase) + 1]
+		local id = showcase[((i + k) % math.max(#showcase, 1)) + 1]
 		if id then
 			part({ Name = "ShowcaseBase", Size = Vector3.new(8, 2, 20), CFrame = CFrame.new(-58, 1, z), Color = INK, Studs = "top" }, folder)
 			local giant = CardArt.part(id, "Holo", nil, false)
@@ -583,7 +588,6 @@ local function buildZone(i: number, zone, parent: Instance)
 		ShopAt = at,
 		Pedestals = pedestals,
 		GuardianHome = at(0, 0, 49),
-		Barrier = barrier,
 	}
 end
 
@@ -595,48 +599,49 @@ function MapBuilder.Build()
 	root.Name = "Map"
 	root.Parent = workspace
 
-	-- hub : pelouse, allée, murs
-	part({ Name = "HubGround", Size = Vector3.new(320, 2, 280), CFrame = CFrame.new(0, -1, -40), Color = GRASS, Studs = "top" }, root)
-	part({ Name = "HubPath", Size = Vector3.new(30, 0.3, 280), CFrame = CFrame.new(0, 0.15, -40), Color = Color3.fromRGB(240, 225, 190), Studs = "top" }, root)
-	for _, side in { -1, 1 } do
-		part({ Name = "PathEdge", Size = Vector3.new(1, 0.4, 280), CFrame = CFrame.new(side * 15.5, 0.2, -40), Color = Color3.fromRGB(200, 170, 120) }, root)
-	end
-	local wallColor = Color3.fromRGB(210, 150, 95)
-	part({ Name = "HubWallBack", Size = Vector3.new(320, 28, 4), CFrame = CFrame.new(0, 14, -182), Color = wallColor, Studs = "all" }, root)
-	part({ Name = "HubWallBackTop", Size = Vector3.new(322, 2, 6), CFrame = CFrame.new(0, 29, -182), Color = GRASS, Studs = "top" }, root)
-	for _, side in { -1, 1 } do
-		part({ Name = "HubWallSide", Size = Vector3.new(4, 28, 284), CFrame = CFrame.new(side * 162, 14, -40), Color = wallColor, Studs = "all" }, root)
-		part({ Name = "HubWallSideTop", Size = Vector3.new(6, 2, 286), CFrame = CFrame.new(side * 162, 29, -40), Color = GRASS, Studs = "top" }, root)
-		part({
-			Name = "HubWallFront",
-			Size = Vector3.new(160 - MapBuilder.RoadHalfWidth, 28, 4),
-			CFrame = CFrame.new(side * (MapBuilder.RoadHalfWidth + (160 - MapBuilder.RoadHalfWidth) / 2), 14, MapBuilder.HubEdgeZ + 2),
-			Color = wallColor,
-			Studs = "all",
-		}, root)
-	end
+	local road = MapBuilder.RoadHalfWidth
+	local half = MapBuilder.ZoneHalfWidth
+	local backZ = -290
+	local hubLen = MapBuilder.HubEdgeZ - backZ
+	local hubMid = (MapBuilder.HubEdgeZ + backZ) / 2
 
-	-- ligne SAFE ZONE au sol + arche de sortie
-	part({ Name = "SafeLine", Size = Vector3.new(MapBuilder.RoadHalfWidth * 2, 0.1, 1.2), CFrame = CFrame.new(0, 0.35, MapBuilder.HubEdgeZ - 1), Color = Color3.fromRGB(255, 50, 70), Material = Enum.Material.Neon, CanCollide = false }, root)
-	local safeText = part({ Name = "SafeText", Size = Vector3.new(30, 0.1, 6), CFrame = CFrame.new(0, 0.32, MapBuilder.HubEdgeZ - 6), Transparency = 1, CanCollide = false }, root)
+	-- quartier des bases : pelouse, rue, trottoirs
+	part({ Name = "HubGround", Size = Vector3.new(half * 2, 2, hubLen), CFrame = CFrame.new(0, -1, hubMid), Color = GRASS, Studs = "top" }, root)
+	part({ Name = "HubRoad", Size = Vector3.new(road * 2, 0.2, hubLen), CFrame = CFrame.new(0, 0.1, hubMid), Color = Color3.fromRGB(240, 225, 190), Studs = "top" }, root)
+	for _, side in { -1, 1 } do
+		part({ Name = "HubSidewalk", Size = Vector3.new(6, 0.5, hubLen), CFrame = CFrame.new(side * (road + 3), 0.25, hubMid), Color = Color3.fromRGB(205, 205, 215), Studs = "top" }, root)
+		part({ Name = "HubWall", Size = Vector3.new(4, 28, hubLen), CFrame = CFrame.new(side * (half + 2), 14, hubMid), Color = Color3.fromRGB(210, 150, 95), Studs = "all" }, root)
+		part({ Name = "HubWallTop", Size = Vector3.new(6, 2, hubLen), CFrame = CFrame.new(side * (half + 2), 29, hubMid), Color = GRASS, Studs = "top" }, root)
+	end
+	part({ Name = "HubWallBack", Size = Vector3.new(half * 2 + 8, 28, 4), CFrame = CFrame.new(0, 14, backZ - 2), Color = Color3.fromRGB(210, 150, 95), Studs = "all" }, root)
+	part({ Name = "HubWallBackTop", Size = Vector3.new(half * 2 + 10, 2, 6), CFrame = CFrame.new(0, 29, backZ - 2), Color = GRASS, Studs = "top" }, root)
+	local title = part({ Name = "Title", Size = Vector3.new(80, 18, 1), CFrame = CFrame.new(0, 40, backZ + 1), Transparency = 1, CanCollide = false }, root)
+	surfaceText(title, Enum.NormalId.Back, Config.GameName, PAPER, 20)
+
+	-- ligne SAFE ZONE et arche de sortie
+	part({ Name = "SafeLine", Size = Vector3.new(road * 2, 0.1, 1.2), CFrame = CFrame.new(0, 0.3, MapBuilder.HubEdgeZ - 1), Color = Color3.fromRGB(255, 50, 70), Material = Enum.Material.Neon, CanCollide = false }, root)
+	local safeText = part({ Name = "SafeText", Size = Vector3.new(30, 0.1, 6), CFrame = CFrame.new(0, 0.3, MapBuilder.HubEdgeZ - 6), Transparency = 1, CanCollide = false }, root)
 	surfaceText(safeText, Enum.NormalId.Top, "SAFE ZONE", PAPER, 20)
-	local exitArch = part({ Name = "ExitArch", Size = Vector3.new(MapBuilder.RoadHalfWidth * 2 + 10, 7, 3), CFrame = CFrame.new(0, 26, MapBuilder.HubEdgeZ + 2), Color = Color3.fromRGB(255, 70, 110), Studs = "top" }, root)
+	for _, side in { -1, 1 } do
+		part({ Name = "ExitPillar", Size = Vector3.new(5, 30, 5), CFrame = CFrame.new(side * (road + 2.5), 15, MapBuilder.HubEdgeZ + 2), Color = Color3.fromRGB(255, 70, 110), Studs = "all" }, root)
+	end
+	local exitArch = part({ Name = "ExitArch", Size = Vector3.new(road * 2 + 10, 7, 3), CFrame = CFrame.new(0, 26.5, MapBuilder.HubEdgeZ + 2), Color = Color3.fromRGB(255, 70, 110), Studs = "top" }, root)
 	surfaceText(exitArch, Enum.NormalId.Front, "TO THE SHOPS", PAPER, 20)
 	surfaceText(exitArch, Enum.NormalId.Back, "SAFE ZONE", Color3.fromRGB(80, 230, 140), 20)
-	part({ Name = "Approach", Size = Vector3.new(MapBuilder.RoadHalfWidth * 2, 0.2, 22), CFrame = CFrame.new(0, 0.1, MapBuilder.HubEdgeZ + 11), Color = Color3.fromRGB(52, 54, 68) }, root)
-	part({ Name = "ApproachGround", Size = Vector3.new(MapBuilder.ZoneHalfWidth * 2, 1, 22), CFrame = CFrame.new(0, -0.5, MapBuilder.HubEdgeZ + 11), Color = GRASS, Studs = "top" }, root)
+	part({ Name = "Approach", Size = Vector3.new(road * 2, 0.2, MapBuilder.ZoneGateZ(1) - MapBuilder.HubEdgeZ), CFrame = CFrame.new(0, 0.1, (MapBuilder.HubEdgeZ + MapBuilder.ZoneGateZ(1)) / 2), Color = Color3.fromRGB(52, 54, 68) }, root)
+	part({ Name = "ApproachGround", Size = Vector3.new(half * 2, 1, MapBuilder.ZoneGateZ(1) - MapBuilder.HubEdgeZ), CFrame = CFrame.new(0, -0.5, (MapBuilder.HubEdgeZ + MapBuilder.ZoneGateZ(1)) / 2), Color = GRASS, Studs = "top" }, root)
 	for _, side in { -1, 1 } do
-		part({ Name = "ApproachFence", Size = Vector3.new(2, 24, 22), CFrame = CFrame.new(side * (MapBuilder.ZoneHalfWidth + 1), 12, MapBuilder.HubEdgeZ + 11), Color = wallColor, Studs = "all" }, root)
+		part({ Name = "ApproachWall", Size = Vector3.new(2, 24, MapBuilder.ZoneGateZ(1) - MapBuilder.HubEdgeZ), CFrame = CFrame.new(side * (half + 1), 12, (MapBuilder.HubEdgeZ + MapBuilder.ZoneGateZ(1)) / 2), Color = Color3.fromRGB(210, 150, 95), Studs = "all" }, root)
 	end
 
-	-- spawn, fontaine, titre
+	-- spawn neutre, fontaine, classements
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "HubSpawn"
 	spawn.Anchored = true
 	spawn.Neutral = true
 	spawn.Duration = 0
 	spawn.Size = Vector3.new(12, 1, 12)
-	spawn.CFrame = CFrame.new(0, 0.8, -155)
+	spawn.CFrame = CFrame.new(0, 0.7, backZ + 22)
 	spawn.Color = INK
 	spawn.Material = Enum.Material.SmoothPlastic
 	spawn.TopSurface = Enum.SurfaceType.Studs
@@ -645,69 +650,39 @@ function MapBuilder.Build()
 	if decal then
 		decal:Destroy()
 	end
-	Props.fountain(Vector3.new(0, 0.3, -125), root)
-	local title = part({ Name = "Title", Size = Vector3.new(70, 18, 1), CFrame = CFrame.new(0, 34, -179), Transparency = 1, CanCollide = false }, root)
-	surfaceText(title, Enum.NormalId.Back, Config.GameName, PAPER, 20)
-
-	-- panneau d'orientation (vu depuis le spawn : la droite de l'écran est vers -X)
-	-- (sur le bord gauche de l'allée, tourné vers ceux qui arrivent du spawn)
-	signBoard(
-		CFrame.new(-24, 6, -112) * CFrame.Angles(0, math.rad(-35), 0),
-		16,
-		6,
-		Color3.fromRGB(255, 70, 110),
-		"< TRAINING    LAB >\nSHOPS STRAIGHT AHEAD",
-		PAPER,
-		"BACK TO SPAWN",
-		root
-	)
-
-	-- végétation et mobilier du hub
-	for _, z in { -160, -10, 70 } do
-		for _, x in { -150, 150 } do
-			Props.tree(Vector3.new(x, 0, z), 1.2, Color3.fromRGB(70, 170, 70), root)
-		end
-	end
-	for _, p in { Vector3.new(-62, 0, 5), Vector3.new(-60, 0, 50), Vector3.new(60, 0, 50), Vector3.new(-60, 0, -110), Vector3.new(-45, 0, 85), Vector3.new(45, 0, 85) } do
-		Props.tree(p, 1, Color3.fromRGB(90, 185, 75), root)
-	end
-	for k = 0, 5 do
-		local z = -130 + k * 40
-		Props.lampPost(Vector3.new(-17.5, 0, z), Color3.fromRGB(255, 230, 150), root, Vector3.new(1, 0, 0))
-		Props.lampPost(Vector3.new(17.5, 0, z + 20), Color3.fromRGB(255, 230, 150), root, Vector3.new(-1, 0, 0))
-	end
-	for _, z in { -100, -60, 40, 80 } do
-		Props.bench(CFrame.new(-19, 0, z) * CFrame.Angles(0, math.rad(90), 0), Color3.fromRGB(200, 120, 60), root)
-		Props.bench(CFrame.new(19, 0, z) * CFrame.Angles(0, math.rad(-90), 0), Color3.fromRGB(200, 120, 60), root)
-	end
-	for _, p in { Vector3.new(-40, 0, 60), Vector3.new(40, 0, 60), Vector3.new(-40, 0, -150), Vector3.new(40, 0, -150), Vector3.new(-60, 0, 20) } do
-		Props.flowers(p, root)
-		Props.bush(p + Vector3.new(6, 0, 0), Color3.fromRGB(80, 180, 70), root)
-	end
-
-	-- classements
 	local boards = {}
-	for _, info in { { "TopIncome", "TOP CASH/S", -45 }, { "TopSpeed", "TOP SPEED", 45 } } do
-		local board = part({ Name = info[1], Size = Vector3.new(18, 24, 1), CFrame = CFrame.new(info[3], 14, -172) * CFrame.Angles(0, math.pi, 0), Color = INK }, root)
+	for _, info in { { "TopIncome", "TOP CASH/S", -40 }, { "TopSpeed", "TOP SPEED", 40 } } do
+		local board = part({ Name = info[1], Size = Vector3.new(18, 24, 1), CFrame = CFrame.new(info[3], 14, backZ + 6) * CFrame.Angles(0, math.pi, 0), Color = INK }, root)
 		part({ Name = "BoardFrame", Size = Vector3.new(19.5, 25.5, 0.8), CFrame = board.CFrame * CFrame.new(0, 0, 0.3), Color = GOLD, Material = Enum.Material.Metal }, root)
-		part({ Name = "BoardBase", Size = Vector3.new(20, 2, 4), CFrame = CFrame.new(info[3], 1, -172), Color = INK, Studs = "top" }, root)
+		part({ Name = "BoardBase", Size = Vector3.new(20, 2, 4), CFrame = CFrame.new(info[3], 1, backZ + 6), Color = INK, Studs = "top" }, root)
 		boards[info[1]] = { part = board, title = info[2] }
 	end
 
-	-- galeries
-	local galleriesFolder = Instance.new("Folder")
-	galleriesFolder.Name = "Galleries"
-	galleriesFolder.Parent = root
-	local galleries = {}
-	for k, z in { -140, -85, -30, 25 } do
-		galleries[k] = buildGallery(k, Vector3.new(-92, 0, z), Vector3.new(-1, 0, 0), galleriesFolder)
-		galleries[k + 4] = buildGallery(k + 4, Vector3.new(92, 0, z), Vector3.new(1, 0, 0), galleriesFolder)
+	-- bases : 4 de chaque côté de la rue, entrée face à la rue
+	local basesFolder = Instance.new("Folder")
+	basesFolder.Name = "Bases"
+	basesFolder.Parent = root
+	local bases = {}
+	for k, z in { -245, -175, -105, -35 } do
+		bases[k] = buildBase(k, Vector3.new(-(road + 6), 0, z), Vector3.new(-1, 0, 0), basesFolder)
+		bases[k + 4] = buildBase(k + 4, Vector3.new(road + 6, 0, z), Vector3.new(1, 0, 0), basesFolder)
 	end
 
-	local lab = buildLab(root)
-	local training = buildTraining(root)
+	-- déco entre les bases et le long de la rue
+	-- dans les allées entre les bases : buissons, fleurs, lampadaires
+	for _, z in { -210, -140, -70 } do
+		for _, side in { -1, 1 } do
+			Props.bush(Vector3.new(side * 40, 0, z), Color3.fromRGB(80, 180, 70), root)
+			Props.flowers(Vector3.new(side * 60, 0, z), root)
+			Props.lampPost(Vector3.new(side * (road + 3), 0.5, z), Color3.fromRGB(255, 230, 150), root, Vector3.new(-side, 0, 0))
+		end
+	end
+	for _, side in { -1, 1 } do
+		Props.tree(Vector3.new(side * 60, 0, backZ + 8), 1.1, Color3.fromRGB(80, 180, 70), root)
+		Props.lampPost(Vector3.new(side * (road + 3), 0.5, -2), Color3.fromRGB(255, 230, 150), root, Vector3.new(-side, 0, 0))
+	end
 
-	-- la rue
+	-- la rue des boutiques
 	local zonesFolder = Instance.new("Folder")
 	zonesFolder.Name = "Zones"
 	zonesFolder.Parent = root
@@ -716,12 +691,10 @@ function MapBuilder.Build()
 		zones[i] = buildZone(i, zone, zonesFolder)
 	end
 	local lastZ = MapBuilder.ZoneGateZ(#Config.Zones) + MapBuilder.ZoneLength
-	part({ Name = "EndWall", Size = Vector3.new(MapBuilder.ZoneHalfWidth * 2 + 4, 30, 3), CFrame = CFrame.new(0, 15, lastZ + 1.5), Color = INK, Studs = "all" }, root)
+	part({ Name = "EndWall", Size = Vector3.new(half * 2 + 4, 30, 3), CFrame = CFrame.new(0, 15, lastZ + 1.5), Color = INK, Studs = "all" }, root)
 
 	return {
-		Galleries = galleries,
-		Lab = lab,
-		Training = training,
+		Bases = bases,
 		Zones = zones,
 		Boards = boards,
 	}

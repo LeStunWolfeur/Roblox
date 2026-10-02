@@ -226,47 +226,50 @@ local function togglePanel(name: string)
 	end
 end
 
+local panelIcons = { Shop = "cart", Lab = "flask", Index = "book", Rebirth = "star", Daily = "gift", Admin = "gear" }
+
 local function makePanel(name: string, title: string, accent: Color3, size: Vector2?): Frame
 	local s = size or Vector2.new(660, 460)
 	local holder, face = Kit.sticker({
 		Name = name .. "Panel",
 		Parent = gui,
-		Size = UDim2.fromOffset(s.X, s.Y),
+		Size = UDim2.fromOffset(s.X, s.Y + 70),
 		Position = UDim2.fromScale(0.5, 0.53),
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Color = C.Paper,
+		Color = Color3.fromRGB(236, 238, 246),
 		ZIndex = 20,
-		Radius = 10,
-	}, 8)
+		Radius = 16,
+		Shine = false,
+	}, 7)
 	holder.Visible = false
 	Kit.new("UIScale", { Parent = holder })
-	local tagHolder, tag = Kit.sticker({
+	-- bandeau de titre coloré avec icône
+	local _, header = Kit.sticker({
 		Parent = face,
-		Size = UDim2.fromOffset(250, 52),
-		Position = UDim2.fromOffset(-14, -26),
+		Size = UDim2.new(1, 0, 0, 70),
 		Color = accent,
 		ZIndex = 30,
-	}, 4)
-	tagHolder.Rotation = -3
-	local t = Kit.label({ Parent = tag, Size = UDim2.fromScale(1, 1), Text = title, ZIndex = 32 })
-	Kit.padding(8).Parent = t
-	Kit.textStroke(3).Parent = t
+		Radius = 16,
+	}, 0)
+	local iconFrame = Kit.new("Frame", { Parent = header, BackgroundTransparency = 1, Size = UDim2.fromOffset(62, 62), Position = UDim2.fromOffset(12, 4), Rotation = -8, ZIndex = 33 })
+	Icons.draw(panelIcons[name] or "star", iconFrame, C.White, 33)
+	local t = Kit.label({ Parent = header, Size = UDim2.new(1, -170, 0, 50), Position = UDim2.fromOffset(84, 10), TextXAlignment = Enum.TextXAlignment.Left, Text = title, ZIndex = 34 })
+	Kit.textStroke(3.5).Parent = t
 	Kit.button({
-		Parent = face,
-		Size = UDim2.fromOffset(46, 46),
-		Position = UDim2.new(1, -30, 0, -16),
-		Color = C.Pink,
+		Parent = header,
+		Size = UDim2.fromOffset(54, 52),
+		Position = UDim2.new(1, -66, 0, 7),
+		Color = Color3.fromRGB(235, 50, 60),
 		Text = "X",
-		TextColor = C.White,
-		TextStroke = true,
-		ZIndex = 30,
+		ZIndex = 34,
+		Shadow = 4,
 	}, closePanels)
 	local content = Kit.new("Frame", {
 		Name = "Content",
 		Parent = face,
 		BackgroundTransparency = 1,
-		Size = UDim2.new(1, -40, 1, -60),
-		Position = UDim2.fromOffset(20, 42),
+		Size = UDim2.new(1, -40, 1, -100),
+		Position = UDim2.fromOffset(20, 86),
 		ZIndex = 22,
 	})
 	panels[name] = holder
@@ -530,6 +533,12 @@ for i, tab in { { "Passes", "PASSES", C.Yellow }, { "Boosts", "BOOSTS", C.Green 
 		end
 	end)
 end
+local function showShopTab(name: string)
+	for key, p in pages do
+		p.Visible = key == name
+	end
+end
+
 for i, key in Config.GamePassOrder do
 	local pass = Config.GamePasses[key]
 	local holder, btn = shopCard(pages.Passes, i, pass.Name, pass.Description, pass.Color, function()
@@ -806,114 +815,106 @@ for i, rarity in Cards.RarityOrder do
 end
 
 --------------------------------------------------------------------
--- Gros boutons à gauche (avec icônes)
+-- Boutons à l'écran (peu nombreux, gros, façon simulateur)
 --------------------------------------------------------------------
-local side = Kit.new("Frame", {
-	Parent = gui,
-	BackgroundTransparency = 1,
-	Size = UDim2.fromOffset(200, 360),
-	Position = UDim2.new(0, 16, 0.5, -215),
-})
-Kit.new("UIListLayout", { Parent = side, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder })
 local badges: { [string]: Frame } = {}
 local adminButtonHolder: Frame
 
-local function iconButton(parent: Instance, order: number, text: string, color: Color3, icon: string, size: Vector2, onClick: () -> ())
-	local holder, btn = Kit.button({
-		Parent = parent,
-		Size = UDim2.fromOffset(size.X, size.Y),
-		Color = color,
-		Text = "",
-		LayoutOrder = order,
-		Shadow = 4,
-	}, onClick)
+local function addBadge(holder: Frame, key: string)
+	badges[key] = Kit.new("Frame", {
+		Parent = holder,
+		BackgroundColor3 = Color3.fromRGB(235, 50, 60),
+		Size = UDim2.fromOffset(26, 26),
+		Position = UDim2.new(1, -16, 0, -10),
+		ZIndex = 12,
+		Visible = false,
+	}, { Kit.corner(13), Kit.stroke(3) })
+	local bang = Kit.label({ Parent = badges[key], Size = UDim2.fromScale(1, 1), Text = "!", ZIndex = 13 })
+	local _ = bang
+end
+
+-- tuile carrée : grosse icône + nom dessous
+local function tile(parent: Instance, order: number, text: string, color: Color3, icon: string, size: Vector2, onClick: () -> ())
+	local holder, btn = Kit.button({ Parent = parent, Size = UDim2.fromOffset(size.X, size.Y), Color = color, Text = "", LayoutOrder = order }, onClick)
 	local face = btn.Parent
 	local iconFrame = Kit.new("Frame", {
 		Parent = face,
 		BackgroundTransparency = 1,
-		Size = UDim2.fromOffset(size.Y - 16, size.Y - 16),
-		Position = UDim2.fromOffset(8, 8),
-		ZIndex = 4,
+		Size = UDim2.fromOffset(size.X * 0.62, size.X * 0.62),
+		Position = UDim2.new(0.5, -size.X * 0.31, 0, 6),
+		Rotation = -6,
+		ZIndex = 5,
 	})
-	Icons.draw(icon, iconFrame, C.White, 4)
-	local label = Kit.label({
-		Parent = face,
-		Size = UDim2.new(1, -(size.Y + 4), 1, -14),
-		Position = UDim2.fromOffset(size.Y, 7),
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Text = text,
-		ZIndex = 4,
-	})
+	Icons.draw(icon, iconFrame, C.White, 5)
+	local label = Kit.label({ Parent = face, Size = UDim2.new(1, -8, 0, 24), Position = UDim2.new(0, 4, 1, -28), Text = text, ZIndex = 6 })
 	Kit.textStroke(3).Parent = label
 	return holder, label
 end
 
-for i, info in {
-	{ "Shop", "Shop", C.Pink, "cart" },
-	{ "Index", "Index", C.Blue, "book" },
-	{ "Rebirth", "Rebirth", C.Yellow, "star" },
-	{ "Lab", "Lab", Color3.fromRGB(0, 200, 210), "flask" },
-	{ "Daily", "Daily", C.Green, "gift" },
-	{ "Admin", "Admin", C.Ink2, "gear" },
-} do
-	local holder = iconButton(side, i, info[2], info[3], info[4], Vector2.new(186, 54), function()
-		togglePanel(info[1])
-	end)
-	badges[info[1]] = Kit.new("Frame", {
-		Parent = holder,
-		BackgroundColor3 = C.Pink,
-		Size = UDim2.fromOffset(22, 22),
-		Position = UDim2.new(1, -12, 0, -8),
-		ZIndex = 10,
-		Visible = false,
-	}, { Kit.corner(11), Kit.stroke(3) })
-	if info[1] == "Admin" then
-		adminButtonHolder = holder
-		holder.Visible = false
-	end
+-- bandeau large : icône + texte
+local function banner(parent: Instance, order: number, text: string, color: Color3, icon: string, size: Vector2, onClick: () -> ())
+	local holder, btn = Kit.button({ Parent = parent, Size = UDim2.fromOffset(size.X, size.Y), Color = color, Text = "", LayoutOrder = order }, onClick)
+	local face = btn.Parent
+	local iconFrame = Kit.new("Frame", { Parent = face, BackgroundTransparency = 1, Size = UDim2.fromOffset(size.Y - 10, size.Y - 10), Position = UDim2.fromOffset(6, 5), Rotation = -8, ZIndex = 5 })
+	Icons.draw(icon, iconFrame, C.White, 5)
+	local label = Kit.label({ Parent = face, Size = UDim2.new(1, -(size.Y + 8), 1, -14), Position = UDim2.fromOffset(size.Y, 7), TextXAlignment = Enum.TextXAlignment.Left, Text = text, ZIndex = 6 })
+	Kit.textStroke(3).Parent = label
+	return holder, label
 end
 
---------------------------------------------------------------------
--- Colonne de droite : Plot, Freeze Guards, Lab, Train
---------------------------------------------------------------------
-local right = Kit.new("Frame", {
-	Parent = gui,
-	BackgroundTransparency = 1,
-	Size = UDim2.fromOffset(160, 340),
-	Position = UDim2.new(1, -176, 0.5, -215),
-})
-Kit.new("UIListLayout", { Parent = right, Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Right })
-
--- Freeze Guards : tuile mise en avant (produit Robux)
-local freezeHolder, freezeFace = Kit.sticker({
-	Parent = right,
-	Size = UDim2.fromOffset(160, 132),
-	Color = Color3.fromRGB(120, 200, 255),
-	LayoutOrder = 1,
-}, 5)
-freezeHolder.Visible = Config.Products.FreezeGuards.Id ~= 0
-local freezeIcon = Kit.new("Frame", { Parent = freezeFace, BackgroundTransparency = 1, Size = UDim2.fromOffset(56, 56), Position = UDim2.new(0.5, -28, 0, 30), ZIndex = 4 })
-Icons.draw("ice", freezeIcon, Color3.fromRGB(200, 240, 255), 4)
-local freezeTitle = Kit.label({ Parent = freezeFace, Size = UDim2.new(1, -12, 0, 26), Position = UDim2.fromOffset(6, 4), Text = "Freeze Guards", ZIndex = 5 })
-Kit.textStroke(3).Parent = freezeTitle
-local freezePrice = Kit.label({ Parent = freezeFace, Size = UDim2.new(1, -12, 0, 30), Position = UDim2.new(0, 6, 1, -36), Text = "...", ZIndex = 5 })
-Kit.textStroke(3).Parent = freezePrice
-local freezeHit = Kit.new("TextButton", { Parent = freezeFace, BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Text = "", ZIndex = 8 })
-freezeHit.Activated:Connect(function()
-	send("BuyProduct", "FreezeGuards")
+-- gauche : Daily + grille 2x2 (Shop, Pass, Rebirth, Index)
+local left = Kit.new("Frame", { Parent = gui, BackgroundTransparency = 1, Size = UDim2.fromOffset(210, 300), Position = UDim2.new(0, 16, 0.5, -175) })
+local dailyHolder = banner(left, 1, "Daily Rewards", Color3.fromRGB(80, 210, 90), "gift", Vector2.new(206, 54), function()
+	togglePanel("Daily")
 end)
-task.spawn(function()
-	freezePrice.Text = "ONLY " .. priceText(Config.Products.FreezeGuards.Id, Enum.InfoType.Product)
+dailyHolder.Position = UDim2.fromOffset(0, 0)
+addBadge(dailyHolder, "Daily")
+local grid = Kit.new("Frame", { Parent = left, BackgroundTransparency = 1, Size = UDim2.fromOffset(210, 210), Position = UDim2.fromOffset(0, 66) })
+Kit.new("UIGridLayout", { Parent = grid, CellSize = UDim2.fromOffset(98, 98), CellPadding = UDim2.fromOffset(10, 10), SortOrder = Enum.SortOrder.LayoutOrder })
+tile(grid, 1, "Shop", Color3.fromRGB(235, 60, 80), "cart", Vector2.new(98, 98), function()
+	showPanel("Shop")
+	showShopTab("Boosts")
 end)
+tile(grid, 2, "Pass", Color3.fromRGB(255, 190, 30), "ticket", Vector2.new(98, 98), function()
+	showPanel("Shop")
+	showShopTab("Passes")
+end)
+local rebirthTile = tile(grid, 3, "Rebirth", Color3.fromRGB(170, 90, 255), "star", Vector2.new(98, 98), function()
+	togglePanel("Rebirth")
+end)
+addBadge(rebirthTile, "Rebirth")
+tile(grid, 4, "Index", Color3.fromRGB(60, 150, 255), "book", Vector2.new(98, 98), function()
+	togglePanel("Index")
+end)
+adminButtonHolder = banner(left, 5, "Admin", C.Ink2, "gear", Vector2.new(206, 44), function()
+	togglePanel("Admin")
+end)
+adminButtonHolder.Position = UDim2.fromOffset(0, 288)
+adminButtonHolder.Visible = false
 
-iconButton(right, 2, "Plot", C.Paper, "house", Vector2.new(160, 58), function()
+-- droite : ma base, offres mises en avant
+local right = Kit.new("Frame", { Parent = gui, BackgroundTransparency = 1, Size = UDim2.fromOffset(104, 340), Position = UDim2.new(1, -120, 0.5, -175) })
+Kit.new("UIListLayout", { Parent = right, Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Center })
+local baseTile = tile(right, 1, "My Base", Color3.fromRGB(80, 200, 255), "house", Vector2.new(100, 100), function()
 	send("Home")
 end)
-iconButton(right, 3, "Lab", Color3.fromRGB(0, 200, 210), "flask", Vector2.new(160, 50), function()
-	send("GoLab")
+addBadge(baseTile, "Base")
+
+local function offerTile(order: number, title: string, color: Color3, icon: string, id: number, infoType: Enum.InfoType, onClick: () -> ())
+	local holder, label = tile(right, order, title, color, icon, Vector2.new(100, 112), onClick)
+	holder.Visible = id ~= 0
+	local price = Kit.label({ Parent = holder, Size = UDim2.new(1, 0, 0, 22), Position = UDim2.new(0, 0, 1, 2), Text = "", TextColor3 = C.Green, ZIndex = 8 })
+	Kit.textStroke(3).Parent = price
+	task.spawn(function()
+		price.Text = "ONLY " .. priceText(id, infoType)
+	end)
+	return holder, label
+end
+offerTile(2, "Freeze", Color3.fromRGB(120, 200, 255), "ice", Config.Products.FreezeGuards.Id, Enum.InfoType.Product, function()
+	send("BuyProduct", "FreezeGuards")
 end)
-iconButton(right, 4, "Train", C.Blue, "shoe", Vector2.new(160, 50), function()
-	send("GoTraining")
+offerTile(3, "x2 Cash", Color3.fromRGB(80, 210, 90), "cash", Config.GamePasses.DoubleCash.Id, Enum.InfoType.GamePass, function()
+	send("BuyPass", "DoubleCash")
 end)
 
 --------------------------------------------------------------------
@@ -1065,7 +1066,7 @@ local function renderStats()
 	local i, zone = nextZone(speed)
 	if zone then
 		local prev = Config.Zones[i - 1] and Config.Zones[i - 1].Speed or 0
-		nextZoneLabel.Text = ("Next: %s at %s"):format(zone.Name, Format.short(zone.Speed))
+		nextZoneLabel.Text = ("Recommended for %s: %s"):format(zone.Name, Format.short(zone.Speed))
 		-- progression en échelle log pour que la barre bouge vraiment
 		local a, b = math.log10(1 + prev), math.log10(1 + zone.Speed)
 		zoneBarFill.Size = UDim2.fromScale(math.clamp((math.log10(1 + speed) - a) / (b - a), 0, 1), 1)
@@ -1096,6 +1097,7 @@ local function render()
 	multLabel.Text = state.SpeedMultiplier > 1 and ("(x%s)"):format(tostring(math.floor(state.SpeedMultiplier * 100 + 0.5) / 100)) or ""
 	friendLabel.Text = ("Friend Boost: +%d%%"):format(math.floor(state.FriendBoost * 100 + 0.5))
 	adminButtonHolder.Visible = state.IsAdmin
+	badges.Rebirth.Visible = (player:GetAttribute("Cash") or 0) >= state.RebirthCost
 	for key, btn in passButtons do
 		if state.Passes[key] then
 			btn.Text = "OWNED"
@@ -1132,20 +1134,20 @@ task.spawn(function()
 		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		if root then
 			local z = root.Position.Z
-			if z < 100 then
+			if z < 0 then
 				placeLabel.Text = "SAFE ZONE"
-				placeSub.Text = "Gallery, lab and treadmills are here"
+				placeSub.Text = "Bases, treadmills and grading labs"
 				placeSub.TextColor3 = C.Green
 			else
-				local index = math.clamp(math.floor((z - 120) / 200) + 1, 1, #Config.Zones)
-				if z < 120 then
+				local index = math.clamp(math.floor((z - 20) / 200) + 1, 1, #Config.Zones)
+				if z < 20 then
 					placeLabel.Text = "THE STRIP"
 					placeSub.Text = "Shops ahead. Guardians chase thieves!"
 					placeSub.TextColor3 = C.Yellow
 				else
 					local zone = Config.Zones[index]
 					placeLabel.Text = ("SHOP %d  ·  %s"):format(index, zone.Name:upper())
-					placeSub.Text = "Guardian: " .. zone.Guardian
+					placeSub.Text = ("Guardian: %s · Recommended: %s Speed"):format(zone.Guardian, Format.short(zone.Speed))
 					placeSub.TextColor3 = zone.Accent
 				end
 			end
@@ -1181,7 +1183,7 @@ task.spawn(function()
 					ready += 1
 				end
 			end
-			badges.Lab.Visible = ready > 0
+			badges.Base.Visible = ready > 0
 			badges.Daily.Visible = state.DailyReady or dailyLeft() <= 0
 			if openPanel == "Lab" then
 				tickLab()

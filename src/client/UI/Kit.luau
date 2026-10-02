@@ -75,9 +75,11 @@ function Kit.label(props: { [string]: any }): TextLabel
 	return Kit.new("TextLabel", defaults)
 end
 
--- Bloc avec une ombre dure décalée : la signature visuelle du jeu
+-- Bloc "jeu Roblox" : relief (ombre foncée dessous), bord épais, dégradé et reflet brillant.
+-- Le dégradé multiplie la couleur de fond, donc on peut changer BackgroundColor3 ensuite.
 function Kit.sticker(props: { [string]: any }, shadowOffset: number?): (Frame, Frame)
 	local offset = shadowOffset or 5
+	local radius = props.Radius or 12
 	local holder = Kit.new("Frame", {
 		Name = props.Name or "Sticker",
 		BackgroundTransparency = 1,
@@ -91,24 +93,42 @@ function Kit.sticker(props: { [string]: any }, shadowOffset: number?): (Frame, F
 	Kit.new("Frame", {
 		Name = "Shadow",
 		BackgroundColor3 = Kit.Colors.Ink,
+		BackgroundTransparency = 0.15,
 		Size = UDim2.fromScale(1, 1),
-		Position = UDim2.fromOffset(offset, offset),
+		Position = UDim2.fromOffset(0, offset),
 		ZIndex = (props.ZIndex or 1),
 		Parent = holder,
-	}, { Kit.corner(props.Radius) })
+	}, { Kit.corner(radius) })
 	local face = Kit.new("Frame", {
 		Name = "Face",
 		BackgroundColor3 = props.Color or Kit.Colors.Paper,
 		Size = UDim2.fromScale(1, 1),
 		ZIndex = (props.ZIndex or 1) + 1,
 		Parent = holder,
-	}, { Kit.corner(props.Radius), Kit.stroke(3) })
+	}, { Kit.corner(radius), Kit.stroke(3) })
+	Kit.new("UIGradient", {
+		Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(185, 185, 195)),
+		Rotation = 90,
+		Parent = face,
+	})
+	if props.Shine ~= false then
+		Kit.new("Frame", {
+			Name = "Shine",
+			BackgroundColor3 = Color3.new(1, 1, 1),
+			BackgroundTransparency = 0.8,
+			Size = UDim2.new(1, -10, 0.42, 0),
+			Position = UDim2.fromOffset(5, 4),
+			ZIndex = face.ZIndex,
+			Parent = face,
+		}, { Kit.corner(math.max(radius - 4, 4)) })
+	end
 	return holder, face
 end
 
--- Bouton sticker qui s'enfonce quand on clique
+-- Bouton en relief qui s'enfonce quand on clique
 function Kit.button(props: { [string]: any }, onClick: () -> ()): (Frame, TextButton)
-	local holder, face = Kit.sticker(props, props.Shadow or 4)
+	local offset = props.Shadow or 5
+	local holder, face = Kit.sticker(props, offset)
 	face.Name = "Face"
 	local btn = Kit.new("TextButton", {
 		Name = "Hit",
@@ -117,19 +137,18 @@ function Kit.button(props: { [string]: any }, onClick: () -> ()): (Frame, TextBu
 		Text = props.Text or "",
 		Font = props.Font or Kit.Title,
 		TextScaled = true,
-		TextColor3 = props.TextColor or Kit.Colors.Ink,
-		ZIndex = face.ZIndex + 1,
+		TextColor3 = props.TextColor or Kit.Colors.White,
+		ZIndex = face.ZIndex + 2,
 		AutoButtonColor = false,
 		Parent = face,
 	}, { Kit.padding(props.TextPadding or 6) })
-	if props.TextStroke then
-		Kit.textStroke(2).Parent = btn
+	if props.TextStroke ~= false then
+		Kit.textStroke(2.5).Parent = btn
 	end
 
-	local offset = props.Shadow or 4
 	local down = TweenInfo.new(0.06)
 	btn.MouseButton1Down:Connect(function()
-		TweenService:Create(face, down, { Position = UDim2.fromOffset(offset, offset) }):Play()
+		TweenService:Create(face, down, { Position = UDim2.fromOffset(0, offset) }):Play()
 	end)
 	local function release()
 		TweenService:Create(face, down, { Position = UDim2.fromOffset(0, 0) }):Play()

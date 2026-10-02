@@ -1,9 +1,10 @@
 --[[
-	Training Track.
-	- E devant un tapis débloqué : le joueur monte dessus (il est placé et bloqué).
-	- Tant qu'il reste appuyé (Espace, W, clic ou bouton à l'écran), il court et gagne de la Speed.
+	Tapis de course de la base.
+	- Chaque base a son tapis devant l'entrée. Seul le propriétaire peut l'utiliser.
+	- E pour monter dessus, puis rester appuyé (Espace, W, clic, bouton RUN) pour courir.
 	- Le pass Auto Train fait courir sans appuyer.
-	- Le tapis suivant se débloque avec du cash.
+	- Le tapis s'améliore par niveaux (cash ou Robux) : plus de Speed par seconde,
+	  et son look change (couleur, cristaux) tous les 5 niveaux.
 ]]
 
 local Players = game:GetService("Players")
@@ -19,8 +20,8 @@ local Hub = require(script.Parent.Parent.Hub)
 local TrainingService = {}
 
 local TICK = 0.25
-local treadmills = {}
-local training: { [Player]: number } = {} -- joueur -> index du tapis
+local bases = {}
+local training: { [Player]: any } = {} -- joueur -> base
 local holding: { [Player]: boolean } = {}
 
 function TrainingService.Multiplier(player: Player): number
@@ -32,11 +33,14 @@ function TrainingService.Multiplier(player: Player): number
 	return m
 end
 
--- Speed par seconde sur le meilleur tapis possédé
-function TrainingService.BestRate(player: Player): number
+function TrainingService.Level(player: Player): number
 	local data = DataService.Get(player)
-	local tier = data and Config.Treadmills[data.Treadmill] or Config.Treadmills[1]
-	return tier.Rate * TrainingService.Multiplier(player)
+	return data and math.clamp(data.Treadmill, 1, Config.TreadmillMaxLevel) or 1
+end
+
+-- Speed par seconde sur le tapis (multiplicateurs compris)
+function TrainingService.BestRate(player: Player): number
+	return Config.TreadmillRate(TrainingService.Level(player)) * TrainingService.Multiplier(player)
 end
 
 function TrainingService.AddSpeed(player: Player, amount: number)
@@ -49,25 +53,61 @@ function TrainingService.AddSpeed(player: Player, amount: number)
 	Hub.Combat.UpdateSpeed(player)
 end
 
-function TrainingService.Unlock(player: Player, index: number)
+-- Met à jour le look du tapis et son panneau
+function TrainingService.Render(base, player: Player?)
+	local t = base.Treadmill
+	local level = player and TrainingService.Level(player) or 1
+	local tier = Config.TreadmillTier(level)
+	for _, p in t.Frames do
+		if p.Name == "Crystal" then
+			p.Transparency = level >= 16 and 0.15 or 1
+			p.Color = tier.Color
+		elseif p.Name == "Side" then
+			p.Color = tier.Color
+		end
+	end
+	t.Glow.Color = tier.Color
+	t.Screen.Color = tier.Color:Lerp(Color3.new(1, 1, 1), 0.3)
+	local text
+	if not player then
+		text = "TREADMILL"
+	elseif level >= Config.TreadmillMaxLevel then
+		text = ("LEVEL %d (MAX)\n+%s SPEED/S"):format(level, Format.short(TrainingService.BestRate(player)))
+	else
+		text = ("LEVEL %d > %d\n%s"):format(level, level + 1, Format.cash(Config.TreadmillCost(level)))
+	end
+	for _, label in t.SignLabels do
+		label.Text = text
+	end
+end
+
+function TrainingService.Upgrade(player: Player, free: boolean?): boolean
 	local data = DataService.Get(player)
-	local tier = Config.Treadmills[index]
-	if not data or not tier or index <= data.Treadmill then
-		return
+	if not data then
+		return false
 	end
-	if index > data.Treadmill + 1 then
-		Remotes.Notify:FireClient(player, "Unlock " .. Config.Treadmills[data.Treadmill + 1].Name .. " first", "error")
-		return
+	local level = TrainingService.Level(player)
+	if level >= Config.TreadmillMaxLevel then
+		Remotes.Notify:FireClient(player, "Your treadmill is already max level", "error")
+		return false
 	end
-	if data.Cash < tier.Price then
-		Remotes.Notify:FireClient(player, "You need " .. Format.cash(tier.Price), "error")
-		return
+	if not free then
+		local cost = Config.TreadmillCost(level)
+		if data.Cash < cost then
+			Remotes.Notify:FireClient(player, "You need " .. Format.cash(cost), "error")
+			return false
+		end
+		data.Cash -= cost
+		player:SetAttribute("Cash", data.Cash)
 	end
-	data.Cash -= tier.Price
-	data.Treadmill = index
-	player:SetAttribute("Cash", data.Cash)
-	Remotes.Notify:FireClient(player, tier.Name .. " treadmill unlocked!", "reward")
+	data.Treadmill = level + 1
+	local base = Hub.Gallery.Get(player)
+	if base then
+		TrainingService.Render(base, player)
+	end
+	Remotes.Notify:FireClient(player, ("Treadmill level %d! +%s Speed/s"):format(data.Treadmill, Format.short(TrainingService.BestRate(player))), "reward")
 	Hub.Players.SendState(player)
+	return true
 end
 
 function TrainingService.Stop(player: Player)
@@ -78,37 +118,19 @@ function TrainingService.Stop(player: Player)
 	end
 end
 
-function TrainingService.StartOn(player: Player, index: any)
-	if type(index) ~= "number" then
-		return
-	end
-	local data = DataService.Get(player)
-	local t = treadmills[index]
+function TrainingService.StartOn(player: Player)
+	local base = Hub.Gallery.Get(player)
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if not data or not t or not root then
+	if not base or not root or Hub.Zones.IsCarrying(player) then
 		return
 	end
-	if Hub.Zones.IsCarrying(player) then
+	if (root.Position - base.Treadmill.Belt.Position).Magnitude > 18 then
 		return
 	end
-	if index > data.Treadmill then
-		Remotes.Notify:FireClient(player, "Unlock this treadmill first", "error")
-		return
-	end
-	if (root.Position - t.Belt.Position).Magnitude > 16 then
-		return
-	end
-	-- un seul joueur par tapis
-	for other, i in training do
-		if i == index and other ~= player and other.Parent then
-			Remotes.Notify:FireClient(player, "Someone is already on this treadmill", "error")
-			return
-		end
-	end
-	training[player] = index
+	training[player] = base
 	holding[player] = false
-	player:SetAttribute("Training", index)
-	player.Character:PivotTo(t.Spot)
+	player:SetAttribute("Training", base.Index)
+	player.Character:PivotTo(base.Treadmill.Spot)
 end
 
 function TrainingService.SetHolding(player: Player, value: any)
@@ -117,11 +139,10 @@ function TrainingService.SetHolding(player: Player, value: any)
 	end
 end
 
-function TrainingService.Start(built)
-	treadmills = built.Treadmills
-	for _, t in treadmills do
-		local tier = Config.Treadmills[t.Index]
-		t.Label.Text = ("%s\n+%s SPEED/S"):format(tier.Name:upper(), Format.short(tier.Rate))
+function TrainingService.Start(builtBases)
+	bases = builtBases
+	for _, base in bases do
+		TrainingService.Render(base, nil)
 	end
 
 	task.spawn(function()
@@ -132,14 +153,13 @@ function TrainingService.Start(built)
 			local now = os.clock()
 			local dt = math.min(now - last, 1)
 			last = now
-			for player, index in training do
-				local t = treadmills[index]
+			for player, base in training do
 				local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
 				local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-				if not player.Parent or not root or not humanoid or humanoid.Health <= 0 or (root.Position - t.Spot.Position).Magnitude > 6 then
+				if not player.Parent or not root or not humanoid or humanoid.Health <= 0 or (root.Position - base.Treadmill.Spot.Position).Magnitude > 6 then
 					TrainingService.Stop(player)
 				elseif holding[player] or MonetizationService.Owns(player, "AutoTrain") then
-					TrainingService.AddSpeed(player, Config.Treadmills[index].Rate * TrainingService.Multiplier(player) * dt)
+					TrainingService.AddSpeed(player, TrainingService.BestRate(player) * dt)
 				end
 			end
 		end

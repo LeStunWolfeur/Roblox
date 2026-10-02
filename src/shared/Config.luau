@@ -30,21 +30,38 @@ end
 Config.CarrySpeedMultiplier = 0.85 -- porter une carte ralentit
 Config.StartCash = 0
 
--- Tapis de course (Training Track). Rate = Speed gagnée par seconde en courant dessus.
-Config.Treadmills = {
-	{ Name = "Basic", Price = 0, Rate = 5, Color = Color3.fromRGB(180, 185, 195) },
-	{ Name = "Sport", Price = 500, Rate = 25, Color = Color3.fromRGB(90, 210, 120) },
-	{ Name = "Pro", Price = 8000, Rate = 150, Color = Color3.fromRGB(70, 150, 255) },
-	{ Name = "Turbo", Price = 120000, Rate = 1200, Color = Color3.fromRGB(170, 90, 255) },
-	{ Name = "Hyper", Price = 2000000, Rate = 10000, Color = Color3.fromRGB(255, 180, 30) },
-	{ Name = "Quantum", Price = 40000000, Rate = 90000, Color = Color3.fromRGB(255, 60, 110) },
-	{ Name = "Warp", Price = 800000000, Rate = 800000, Color = Color3.fromRGB(0, 220, 220) },
-	{ Name = "Singularity", Price = 15000000000, Rate = 7000000, Color = Color3.fromRGB(30, 30, 30) },
+-- Tapis de course : chaque base a le sien, devant l'entrée, améliorable par niveaux.
+Config.TreadmillMaxLevel = 30
+function Config.TreadmillRate(level: number): number
+	-- Speed gagnée par seconde en courant dessus
+	return math.floor(5 * 1.75 ^ (level - 1))
+end
+function Config.TreadmillCost(level: number): number
+	-- prix pour passer du niveau level au niveau level + 1
+	return math.floor(50 * 2.3 ^ (level - 1))
+end
+-- couleur du tapis selon le niveau (change tous les 5 niveaux)
+Config.TreadmillTiers = {
+	{ From = 1, Name = "Basic", Color = Color3.fromRGB(170, 175, 190) },
+	{ From = 6, Name = "Sport", Color = Color3.fromRGB(80, 220, 120) },
+	{ From = 11, Name = "Pro", Color = Color3.fromRGB(60, 150, 255) },
+	{ From = 16, Name = "Turbo", Color = Color3.fromRGB(170, 90, 255) },
+	{ From = 21, Name = "Hyper", Color = Color3.fromRGB(255, 190, 40) },
+	{ From = 26, Name = "Quantum", Color = Color3.fromRGB(255, 60, 120) },
 }
+function Config.TreadmillTier(level: number)
+	local tier = Config.TreadmillTiers[1]
+	for _, t in Config.TreadmillTiers do
+		if level >= t.From then
+			tier = t
+		end
+	end
+	return tier
+end
 
 --------------------------------------------------------------------
 -- BOUTIQUES (les zones sur la route, de la plus proche à la plus lointaine)
--- Speed = vitesse minimum pour entrer
+-- Speed = vitesse conseillée : à cette vitesse on ressort avec les cartes de devant
 -- Rarity = chances d'apparition des raretés sur les présentoirs
 -- GuardianSpeed (zone 1 seulement) = gardien plus lent que le joueur, pour apprendre
 --------------------------------------------------------------------
@@ -106,10 +123,10 @@ Config.RestockTime = { 18, 32 } -- secondes avant qu'un présentoir vide se remp
 Config.StealHoldTime = 0.6
 
 -- Vitesse des gardiens. Réglée avec une simulation de poursuite :
--- à la vitesse minimum on se fait attraper, avec environ 2-3x la Speed demandée
--- on ressort avec les cartes de devant, environ 6-10x pour celles du fond.
+-- en dessous de la vitesse conseillée on se fait attraper, à la vitesse conseillée
+-- on ressort avec les cartes de devant, il faut environ 3x pour celles du fond.
 -- (le gardien accélère aussi pendant la poursuite, voir GuardianRamp plus bas)
-Config.GuardianSpeedFactor = 0.95
+Config.GuardianSpeedFactor = 0.9
 Config.GuardianReaction = 15 -- le gardien démarre après que le voleur a parcouru ~15 studs
 function Config.GuardianSpeedFor(zone): number
 	if zone.GuardianSpeed then
@@ -214,8 +231,9 @@ Config.VipCashMultiplier = 1.5
 -- DEVELOPER PRODUCTS
 --------------------------------------------------------------------
 Config.Products = {
-	SpeedSmall = { Id = 0, Kind = "Speed", Minutes = 10, Minimum = 1000, Name = "Speed Boost", Description = "10 minutes of training on your best treadmill." },
-	SpeedBig = { Id = 0, Kind = "Speed", Minutes = 60, Minimum = 8000, Name = "Speed Mega Boost", Description = "1 hour of training on your best treadmill." },
+	SpeedSmall = { Id = 0, Kind = "Speed", Minutes = 10, Minimum = 1000, Name = "Speed Boost", Description = "10 minutes of training on your treadmill." },
+	SpeedBig = { Id = 0, Kind = "Speed", Minutes = 60, Minimum = 8000, Name = "Speed Mega Boost", Description = "1 hour of training on your treadmill." },
+	TreadmillUpgrade = { Id = 0, Kind = "Treadmill", Name = "Treadmill +1 Level", Description = "Upgrade your treadmill one level right now." },
 	FreezeGuards = { Id = 0, Kind = "Freeze", Name = "Freeze Guards", Description = "Every guardian is frozen for 30 seconds. Go!" },
 	InstantGrade = { Id = 0, Kind = "InstantGrade", Name = "Grade All Now", Description = "Finish every card in the lab instantly." },
 	ServerLuck = { Id = 0, Kind = "ServerLuck", Name = "Server Luck x2", Description = "Rare cards x2 for EVERYONE in the server for 15 min." },
@@ -223,7 +241,7 @@ Config.Products = {
 	CashSmall = { Id = 0, Kind = "Cash", Minutes = 10, Minimum = 2000, Name = "Cash Bag", Description = "10 minutes of your income." },
 	CashBig = { Id = 0, Kind = "Cash", Minutes = 60, Minimum = 15000, Name = "Cash Vault", Description = "1 hour of your income." },
 }
-Config.ProductOrder = { "FreezeGuards", "SpeedSmall", "SpeedBig", "InstantGrade", "ServerLuck", "MysteryPack", "CashSmall", "CashBig" }
+Config.ProductOrder = { "FreezeGuards", "TreadmillUpgrade", "SpeedSmall", "SpeedBig", "InstantGrade", "ServerLuck", "MysteryPack", "CashSmall", "CashBig" }
 Config.PackWeights = { Epic = 70, Legendary = 25, Mythic = 4.6, Secret = 0.4 }
 
 --------------------------------------------------------------------

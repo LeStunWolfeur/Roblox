@@ -59,7 +59,7 @@ Cards.Seasons = {
 		From = { 10, 1 },
 		To = { 11, 5 },
 		Share = 0.18, -- part des apparitions réservée aux cartes du set
-		Lighting = { ClockTime = 19.6, Atmosphere = Color3.fromRGB(255, 140, 60) },
+		Lighting = { ClockTime = 16.8, Atmosphere = Color3.fromRGB(255, 170, 110) },
 	},
 	Winter = {
 		Name = "Frost Set",

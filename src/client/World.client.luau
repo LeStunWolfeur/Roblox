@@ -13,7 +13,6 @@ local Format = require(ReplicatedStorage.Shared.Format)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
 local player = Players.LocalPlayer
-local treadmillOwned = 1
 
 local function makePrompt(parent: Instance, name: string): ProximityPrompt
 	local p = Instance.new("ProximityPrompt")
@@ -84,43 +83,39 @@ end)
 --------------------------------------------------------------------
 -- Tapis de course : débloquer le suivant
 --------------------------------------------------------------------
-local treadmillPrompts: { [BasePart]: ProximityPrompt } = {}
+local treadmillPrompts: { [BasePart]: { train: ProximityPrompt, upgrade: ProximityPrompt } } = {}
+local treadmillLevel, treadmillCost = 1, nil
 
 local function updateTreadmill(console: BasePart)
-	local prompt = treadmillPrompts[console]
-	local index = console:GetAttribute("TreadmillIndex")
-	local tier = Config.Treadmills[index]
-	if player:GetAttribute("Training") then
-		prompt.Enabled = false
-	elseif index <= treadmillOwned then
-		prompt.ActionText = "Train"
-		prompt.ObjectText = tier.Name .. " treadmill"
-		prompt.HoldDuration = 0
-		prompt.Enabled = true
-	elseif index == treadmillOwned + 1 then
-		prompt.ActionText = "Unlock " .. Format.cash(tier.Price)
-		prompt.ObjectText = tier.Name .. " treadmill"
-		prompt.HoldDuration = 0.4
-		prompt.Enabled = true
-	else
-		prompt.Enabled = false
-	end
+	local prompts = treadmillPrompts[console]
+	local mine = console:GetAttribute("BaseIndex") == player:GetAttribute("GalleryIndex")
+	local training = player:GetAttribute("Training") ~= nil
+	prompts.train.Enabled = mine and not training
+	prompts.train.ActionText = "Train"
+	prompts.train.ObjectText = "Treadmill · Level " .. treadmillLevel
+	prompts.upgrade.Enabled = mine and treadmillCost ~= nil
+	prompts.upgrade.ActionText = treadmillCost and ("Upgrade " .. Format.cash(treadmillCost)) or "Max level"
+	prompts.upgrade.ObjectText = ("Level %d > %d"):format(treadmillLevel, treadmillLevel + 1)
 end
 
 local function hookTreadmill(console: Instance)
 	if not console:IsA("BasePart") or treadmillPrompts[console] then
 		return
 	end
-	local prompt = makePrompt(console, "TreadmillPrompt")
-	prompt.MaxActivationDistance = 12
-	treadmillPrompts[console] = prompt
-	prompt.Triggered:Connect(function()
-		local index = console:GetAttribute("TreadmillIndex")
-		if index <= treadmillOwned then
-			Remotes.Action:FireServer("TrainStart", index)
-		else
-			Remotes.Action:FireServer("UnlockTreadmill", index)
-		end
+	local train = makePrompt(console, "TrainPrompt")
+	train.MaxActivationDistance = 14
+	train.KeyboardKeyCode = Enum.KeyCode.E
+	local upgrade = makePrompt(console, "UpgradePrompt")
+	upgrade.MaxActivationDistance = 14
+	upgrade.KeyboardKeyCode = Enum.KeyCode.F
+	upgrade.HoldDuration = 0.3
+	upgrade.UIOffset = Vector2.new(0, 80)
+	treadmillPrompts[console] = { train = train, upgrade = upgrade }
+	train.Triggered:Connect(function()
+		Remotes.Action:FireServer("TrainStart")
+	end)
+	upgrade.Triggered:Connect(function()
+		Remotes.Action:FireServer("UpgradeTreadmill")
 	end)
 	updateTreadmill(console)
 end
@@ -135,9 +130,11 @@ local function refreshTreadmills()
 	end
 end
 Remotes.State.OnClientEvent:Connect(function(state)
-	treadmillOwned = state.Treadmill
+	treadmillLevel = state.Treadmill
+	treadmillCost = state.TreadmillCost
 	refreshTreadmills()
 end)
+player:GetAttributeChangedSignal("GalleryIndex"):Connect(refreshTreadmills)
 player:GetAttributeChangedSignal("Training"):Connect(refreshTreadmills)
 
 --------------------------------------------------------------------

@@ -25,7 +25,7 @@ local function defaultData()
 	return {
 		Cash = Config.StartCash,
 		Speed = 0,
-		Treadmill = 1, -- meilleur tapis de course acheté
+		Treadmill = 1, -- niveau du tapis de course de la base
 		Raw = {}, -- cartes volées pas encore gradées : { Id, F }
 		Grading = {}, -- cartes au labo : { Id, F, Ends = os.time() de fin }
 		Cards = {}, -- cartes gradées exposées : { S = vitrine, Id, F, G }

@@ -123,6 +123,8 @@ function PlayerService.SendState(player: Player)
 		CashMultiplier = PlayerService.CashMultiplier(player),
 		SpeedMultiplier = Hub.Training.Multiplier(player),
 		Treadmill = data.Treadmill,
+		TreadmillRate = Hub.Training.BestRate(player),
+		TreadmillCost = data.Treadmill < Config.TreadmillMaxLevel and Config.TreadmillCost(data.Treadmill) or nil,
 		BestZone = data.BestZone,
 		Cases = Hub.Gallery.CaseCount(player),
 		CardCount = #data.Cards,
@@ -223,14 +225,12 @@ function actions.SellRaw(player: Player, index: any)
 	end
 end
 
-function actions.UnlockTreadmill(player: Player, index: any)
-	if type(index) == "number" then
-		Hub.Training.Unlock(player, index)
-	end
+function actions.UpgradeTreadmill(player: Player)
+	Hub.Training.Upgrade(player, false)
 end
 
-function actions.TrainStart(player: Player, index: any)
-	Hub.Training.StartOn(player, index)
+function actions.TrainStart(player: Player)
+	Hub.Training.StartOn(player)
 end
 
 function actions.TrainStop(player: Player)
@@ -263,6 +263,10 @@ function actions.Rebirth(player: Player)
 	data.Cash = 0
 	data.Speed = 0
 	data.Treadmill = 1
+	local base = Hub.Gallery.Get(player)
+	if base then
+		Hub.Training.Render(base, player)
+	end
 	data.Raw = {}
 	data.Grading = {}
 	Hub.Gallery.ClearCards(player)
@@ -324,14 +328,6 @@ function actions.Home(player: Player)
 	end
 end
 
-function actions.GoLab(player: Player)
-	teleport(player, Hub.Map.Lab.Spawn)
-end
-
-function actions.GoTraining(player: Player)
-	teleport(player, CFrame.new(40, 4, -35))
-end
-
 local function onAction(player: Player, action: any, a: any, b: any)
 	if type(action) ~= "string" or not actions[action] then
 		return
@@ -357,6 +353,15 @@ end
 
 local function handleInstantGrade(player: Player): boolean
 	return Hub.Grading.FinishAll(player)
+end
+
+local function handleTreadmill(player: Player): boolean
+	if Hub.Training.Level(player) >= Config.TreadmillMaxLevel then
+		-- déjà au max : on donne l'équivalent en Speed pour ne pas perdre l'achat
+		Hub.Training.AddSpeed(player, Hub.Training.BestRate(player) * 600)
+		return true
+	end
+	return Hub.Training.Upgrade(player, true)
 end
 
 local function handleFreeze(player: Player): boolean
@@ -504,6 +509,7 @@ end
 
 function PlayerService.Start()
 	MonetizationService.RegisterHandler("Speed", handleSpeed)
+	MonetizationService.RegisterHandler("Treadmill", handleTreadmill)
 	MonetizationService.RegisterHandler("InstantGrade", handleInstantGrade)
 	MonetizationService.RegisterHandler("ServerLuck", handleServerLuck)
 	MonetizationService.RegisterHandler("Freeze", handleFreeze)

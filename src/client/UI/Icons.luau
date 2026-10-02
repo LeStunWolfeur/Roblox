@@ -81,6 +81,11 @@ function Icons.draw(kind: string, parent: Instance, color: Color3, z: number)
 		end
 		box(parent, s(0.5, 0.5), s(0.5, 0.5), color, 0.5, nil, z + 1)
 		box(parent, s(0.2, 0.2), s(0.5, 0.5), INK, 0.5, nil, z + 2)
+	elseif kind == "ticket" then
+		box(parent, s(0.84, 0.52), s(0.5, 0.5), color, 0.15, -14, z)
+		box(parent, s(0.16, 0.16), s(0.13, 0.55), INK, 0.5, nil, z + 1)
+		box(parent, s(0.16, 0.16), s(0.87, 0.45), INK, 0.5, nil, z + 1)
+		box(parent, s(0.4, 0.1), s(0.5, 0.5), WHITE, nil, -14, z + 1)
 	elseif kind == "clock" then
 		box(parent, s(0.76, 0.76), s(0.5, 0.5), color, 0.5, nil, z)
 		box(parent, s(0.08, 0.3), s(0.5, 0.38), INK, nil, nil, z + 1)

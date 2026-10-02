@@ -35,7 +35,8 @@ local holdSources: { [any]: boolean } = {}
 local holding = false
 local runTrack: AnimationTrack? = nil
 local passes: { [string]: boolean } = {}
-local multiplier = 1
+local rate = 5
+local level = 1
 
 --------------------------------------------------------------------
 -- Interface d'entraînement
@@ -88,14 +89,13 @@ local function refreshUI()
 	if not active then
 		return
 	end
-	local tier = Config.Treadmills[active]
-	local rate = tier.Rate * multiplier
+	local tier = Config.TreadmillTier(level)
 	if autoTrain() then
 		title.Text = "AUTO TRAINING"
 	else
 		title.Text = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and "HOLD THE BUTTON TO RUN" or "HOLD SPACE / CLICK TO RUN"
 	end
-	rateLabel.Text = ("%s treadmill  ·  +%s Speed/s"):format(tier.Name, Format.short(rate))
+	rateLabel.Text = ("%s treadmill · Level %d · +%s Speed/s"):format(tier.Name, level, Format.short(rate))
 	runBtn.Parent.BackgroundColor3 = (holding or autoTrain()) and C.Yellow or C.Green
 	runBtn.Text = (holding or autoTrain()) and "RUNNING!" or "HOLD TO RUN"
 end
@@ -163,7 +163,7 @@ end
 --------------------------------------------------------------------
 local function consoleFor(index: number): BasePart?
 	for _, c in CollectionService:GetTagged("Treadmill") do
-		if c:GetAttribute("TreadmillIndex") == index then
+		if c:GetAttribute("BaseIndex") == index then
 			return c :: BasePart
 		end
 	end
@@ -261,8 +261,58 @@ runBtn.MouseLeave:Connect(function()
 	recomputeHold()
 end)
 
+--------------------------------------------------------------------
+-- "+X" qui s'envolent au-dessus du joueur quand la Speed monte
+--------------------------------------------------------------------
+local TweenService = game:GetService("TweenService")
+local lastSpeed = player:GetAttribute("Speed") or 0
+local pending = 0
+player:GetAttributeChangedSignal("Speed"):Connect(function()
+	local now = player:GetAttribute("Speed") or 0
+	if active and now > lastSpeed then
+		pending += now - lastSpeed
+	end
+	lastSpeed = now
+end)
+task.spawn(function()
+	local rng = Random.new()
+	while true do
+		task.wait(0.45)
+		local head = player.Character and player.Character:FindFirstChild("Head")
+		if pending > 0 and head and active then
+			local amount = pending
+			pending = 0
+			local bb = Instance.new("BillboardGui")
+			bb.Size = UDim2.fromOffset(160, 44)
+			bb.StudsOffset = Vector3.new(rng:NextNumber(-2.5, 2.5), 2.5, 0)
+			bb.AlwaysOnTop = true
+			bb.Adornee = head
+			bb.Parent = playerGui
+			local label = Instance.new("TextLabel")
+			label.BackgroundTransparency = 1
+			label.Size = UDim2.fromScale(1, 1)
+			label.Font = Enum.Font.FredokaOne
+			label.TextScaled = true
+			label.TextColor3 = Color3.fromRGB(255, 80, 140)
+			label.Text = "+" .. Format.short(amount)
+			label.Parent = bb
+			local stroke = Instance.new("UIStroke")
+			stroke.Thickness = 3
+			stroke.Color = Color3.fromRGB(255, 255, 255)
+			stroke.Parent = label
+			TweenService:Create(bb, TweenInfo.new(1.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { StudsOffset = bb.StudsOffset + Vector3.new(0, 4, 0) }):Play()
+			TweenService:Create(label, TweenInfo.new(1.1), { TextTransparency = 1 }):Play()
+			TweenService:Create(stroke, TweenInfo.new(1.1), { Transparency = 1 }):Play()
+			task.delay(1.2, function()
+				bb:Destroy()
+			end)
+		end
+	end
+end)
+
 Remotes.State.OnClientEvent:Connect(function(state)
 	passes = state.Passes or {}
-	multiplier = state.SpeedMultiplier or 1
+	rate = state.TreadmillRate or rate
+	level = state.Treadmill or level
 	updateRunning()
 end)

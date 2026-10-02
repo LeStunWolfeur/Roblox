@@ -12,6 +12,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local DataService = require(script.Parent.DataService)
 local MonetizationService = require(script.Parent.MonetizationService)
 local Hub = require(script.Parent.Parent.Hub)
+local Showcase = require(script.Parent.Parent.World.Showcase)
 
 local GalleryService = {}
 
@@ -91,19 +92,17 @@ local function renderCase(gallery, index: number)
 	end
 
 	local owner = s.owner
+	Showcase.style(case.Show, nil)
 	if not owner then
 		plinth:SetAttribute("Locked", nil)
-		case.Strip.Color = gallery.Color
-		case.Strip.Transparency = 0.8
-		case.Glass.Transparency = 0.85
+		case.Show.Top.Color = Color3.fromRGB(150, 150, 165)
 		case.Label.Text = ""
 		return
 	end
 
 	local unlocked = index <= GalleryService.CaseCount(owner)
 	plinth:SetAttribute("Locked", not unlocked)
-	case.Strip.Transparency = unlocked and 0 or 0.85
-	case.Glass.Transparency = unlocked and 0.75 or 0.92
+	case.Show.Top.Color = unlocked and Color3.fromRGB(235, 235, 245) or Color3.fromRGB(110, 110, 125)
 	if not unlocked then
 		-- seule la prochaine vitrine est achetable
 		if index == GalleryService.CaseCount(owner) + 1 then
@@ -133,7 +132,7 @@ local function renderCase(gallery, index: number)
 	plinth:SetAttribute("Finish", c.F)
 	plinth:SetAttribute("Grade", c.G)
 	plinth:SetAttribute("Value", Cards.SellValue(c.Id, c.F, c.G))
-	case.Strip.Color = Cards.Rarities[Cards.ById[c.Id].Rarity].Color
+	Showcase.style(case.Show, Cards.ById[c.Id].Rarity)
 	case.Label.Text = "+" .. Format.cash(Cards.IncomeOf(c.Id, c.F, c.G) * Hub.Players.CashMultiplier(owner)) .. "/s"
 	case.Label.TextColor3 = Color3.fromRGB(80, 230, 140)
 end
@@ -229,9 +228,16 @@ function GalleryService.Assign(player: Player)
 			s.pending = 0
 			galleryOf[player] = g
 			g.Folder:SetAttribute("OwnerId", player.UserId)
-			g.SignLabel.Text = player.DisplayName:upper() .. "'S GALLERY"
+			g.SignLabel.Text = player.DisplayName:upper() .. "'S BASE"
+			for _, label in g.SignLabel.Parent.Parent:GetChildren() do
+				local l = label:FindFirstChildOfClass("TextLabel")
+				if label:IsA("SurfaceGui") and l then
+					l.Text = player.DisplayName:upper() .. "'S BASE"
+				end
+			end
 			player:SetAttribute("GalleryIndex", g.Index)
 			GalleryService.Render(player)
+			Hub.Training.Render(g, player)
 			return g
 		end
 	end
@@ -248,7 +254,15 @@ function GalleryService.Release(player: Player)
 	s.pending = 0
 	galleryOf[player] = nil
 	g.Folder:SetAttribute("OwnerId", nil)
-	g.SignLabel.Text = "FREE GALLERY"
+	for _, label in g.SignLabel.Parent.Parent:GetChildren() do
+		local l = label:FindFirstChildOfClass("TextLabel")
+		if label:IsA("SurfaceGui") and l then
+			l.Text = "FREE BASE"
+		end
+	end
+	g.MachineTag.Text = ""
+	Hub.Training.Render(g, nil)
+	g.MachineLabel.Text = "GRADING LAB"
 	g.CollectLabel.Text = ""
 	for i = 1, #g.Cases do
 		renderCase(g, i)
@@ -299,6 +313,15 @@ function GalleryService.Start(built)
 					end
 					player:SetAttribute("Cash", data.Cash)
 					player:SetAttribute("Income", perSecond)
+					-- état de la machine de gradation
+					local ready, busy = 0, #data.Grading
+					for _, e in data.Grading do
+						if e.Ends <= os.time() then
+							ready += 1
+						end
+					end
+					g.MachineLabel.Text = ("GRADING LAB\n%d / %d SLOTS"):format(busy, Hub.Grading.SlotCount(player))
+					g.MachineTag.Text = ready > 0 and (ready .. " CARD" .. (ready > 1 and "S" or "") .. " READY!") or ""
 				end
 			end
 		end

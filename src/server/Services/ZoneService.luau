@@ -20,6 +20,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local DataService = require(script.Parent.DataService)
 local MapBuilder = require(script.Parent.Parent.World.MapBuilder)
 local GuardModel = require(script.Parent.Parent.World.GuardModel)
+local Showcase = require(script.Parent.Parent.World.Showcase)
 local Hub = require(script.Parent.Parent.Hub)
 
 local ZoneService = {}
@@ -164,6 +165,7 @@ local function restock(zoneIndex: number, pedestal)
 	local finish = Hub.Loot.RollFinish()
 	pedestal.card = { Id = id, F = finish }
 
+	Showcase.style(pedestal.Show, Cards.ById[id].Rarity)
 	local part = CardArt.part(id, finish, nil, false)
 	part.CFrame = pedestal.CardCFrame
 	part.Parent = zones[zoneIndex].Folder
@@ -215,14 +217,12 @@ function ZoneService.TrySteal(player: Player, zoneIndex: number, pedestal)
 	if not data or not humanoid or humanoid.Health <= 0 or not root then
 		return
 	end
-	if data.Speed < Config.Zones[zoneIndex].Speed then
-		return
-	end
 	if (root.Position - pedestal.Stand.Position).Magnitude > 16 then
 		return
 	end
 	local card = pedestal.card
 	pedestal.card = nil
+	Showcase.style(pedestal.Show, nil)
 	if pedestal.part then
 		pedestal.part:Destroy()
 		pedestal.part = nil
@@ -464,15 +464,7 @@ function ZoneService.Start(built)
 
 					local zoneIndex = MapBuilder.ZoneAt(root.Position.Z)
 					if zoneIndex > 0 then
-						local zone = Config.Zones[zoneIndex]
-						if data.Speed < zone.Speed then
-							-- pas assez rapide : renvoyé devant le portail
-							character:PivotTo(CFrame.new(root.Position.X * 0.3, 4, MapBuilder.ZoneGateZ(zoneIndex) - 8))
-							if (gateWarning[player] or 0) + 3 < os.clock() then
-								gateWarning[player] = os.clock()
-								Remotes.Notify:FireClient(player, ("You need %s Speed for %s"):format(Format.short(zone.Speed), zone.Name), "error")
-							end
-						elseif zoneIndex > data.BestZone then
+						if zoneIndex > data.BestZone then
 							data.BestZone = zoneIndex
 							Hub.Players.OnNewZone(player, zoneIndex)
 						end

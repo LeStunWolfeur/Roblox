@@ -15,16 +15,16 @@ Fichier prêt à ouvrir : `build/StealACard.rbxl`. Toute la map est générée p
 
 ## Les lieux
 
-**Le hub (zone sûre)**
-- **Ta galerie** : 16 vitrines (6 au départ, les suivantes s'achètent). Les cartes exposées produisent du cash, à ramasser sur la dalle verte. Tu peux vendre une carte en maintenant E devant sa vitrine.
-- **Le Grading Lab** : les cartes volées y arrivent toutes seules. La gradation prend de 20 s (Common) à 25 min (Secret) et continue même quand tu es déconnecté. Une fois terminée, tu récupères la carte et sa note est révélée.
-- **La Training Track** : 8 tapis de course, du Basic au Singularity. Appuie sur E devant un tapis pour monter dessus, puis **reste appuyé** sur Espace (ou W, clic, ou le bouton RUN sur mobile) pour courir et gagner de la Speed. X ou le bouton LEAVE pour descendre. Le pass Auto Train fait courir sans tenir la touche. Chaque tapis se débloque avec du cash.
+**La rue des bases (zone sûre)** : 8 bases de joueurs, 4 de chaque côté de la rue, juste avant les boutiques. Dans chaque base :
+- **Le tapis de course** (devant à droite) : E pour monter, puis reste appuyé sur Espace, W, clic ou le bouton RUN pour courir et gagner de la Speed, avec des "+X" qui s'envolent. F pour l'améliorer : 30 niveaux, payables en cash (ou +1 niveau en Robux). Son look change tous les 5 niveaux (couleur, cristaux). X pour descendre. Le pass Auto Train fait courir sans tenir la touche.
+- **16 présentoirs** pour exposer tes cartes gradées. Ils produisent du cash, à ramasser sur la dalle verte. Les premiers sont ouverts, les suivants s'achètent.
+- **La machine de gradation** au fond (E pour l'ouvrir). Les cartes volées y arrivent toutes seules. La gradation continue même déconnecté, et un panneau "X CARDS READY!" s'affiche au-dessus quand c'est prêt.
 
-**La rue (10 boutiques en ligne droite)**
+**La rue des boutiques** : la suite de la même rue, avec 10 boutiques à thème.
 
-| # | Boutique | Speed minimum | Gardien |
+| # | Boutique | Speed conseillée | Gardien |
 |---|---|---|---|
-| 1 | Corner Shop | 0 | Grandpa Gus |
+| 1 | Corner Shop | aucune | Grandpa Gus |
 | 2 | Comic Corner | 600 | Comic Kev |
 | 3 | Pixel Arcade | 6K | Arcade Ace |
 | 4 | Mall Kiosk | 50K | Mall Cop Mike |
@@ -35,16 +35,24 @@ Fichier prêt à ouvrir : `build/StealACard.rbxl`. Toute la map est générée p
 | 9 | Sky Exchange | 1.6B | Sky Broker |
 | 10 | Cosmic Archive | 12B | The Archivist |
 
-Avant chaque zone, un grand panneau indique la vitesse minimum, puis un portail bloque ceux qui ne l'ont pas. Chaque boutique a 6 présentoirs qui se remplissent tout seuls, avec des raretés de plus en plus hautes à mesure qu'on avance.
+Il n'y a plus de portail bloquant : avant chaque zone, un grand panneau donne la **vitesse conseillée**. Chaque boutique a 6 présentoirs dont le look dépend de la rareté de la carte posée dessus :
+- Common : gris.
+- Rare : couleur bleue et lumière.
+- Epic : en plus, un rayon lumineux.
+- Legendary et Mythic : en plus, des étincelles.
+- Secret : noir et blanc.
 
 ## Les règles du vol
 
 - Maintiens E sur une carte pour la prendre. Tu la portes au-dessus de ta tête et tu cours 15 % moins vite.
 - Le gardien (un vendeur en uniforme, animé) te poursuit jusqu'au portail de sa zone, et il accélère pendant la poursuite (jusqu'à +25 %). S'il t'attrape, tu es projeté et la carte tombe au sol pendant 25 s : n'importe quel joueur peut la ramasser.
 - Les autres joueurs peuvent te mettre une claque pour te faire lâcher la carte. Pas de claques dans la zone sûre.
-- Dès que tu rentres dans le hub, la carte part au labo.
+- Dès que tu repasses la ligne SAFE ZONE, la carte part à la machine de gradation de ta base.
 
-**Équilibrage, vérifié par simulation** : à la vitesse minimum d'une zone, le gardien t'attrape. Avec environ 2 à 3 fois la Speed demandée, tu ressors avec les cartes de devant. Il faut environ 6 à 10 fois pour celles du fond, près du gardien. C'est la même difficulté dans les 10 zones. Dans Steal an Egg aussi, la vitesse du portail permet seulement d'entrer, et il faut de la marge pour ressortir avec l'œuf.
+**Équilibrage, vérifié par simulation sur les 10 zones** :
+- En dessous de la vitesse conseillée, le gardien t'attrape.
+- À la vitesse conseillée, tu ressors avec les cartes de devant.
+- Il faut environ 6 fois la vitesse conseillée pour celles du fond, près du gardien. C'est la même difficulté dans les 10 zones. Dans Steal an Egg aussi, la vitesse du portail permet seulement d'entrer, et il faut de la marge pour ressortir avec l'œuf.
 
 ## Progression
 
@@ -77,6 +85,7 @@ Repère sur les prix : Steal an Egg vend son X2 Money 399 R$ et son X2 Growth 46
 | 2x Cash | 349 R$ |
 | 2x Training | 249 R$ |
 | Auto Train | 199 R$ |
+| Treadmill +1 Level | 25 R$ |
 | Freeze Guards | 79 R$ |
 | 2x Grading | 199 R$ |
 | +2 Grading Slots | 149 R$ |
@@ -90,18 +99,21 @@ Repère sur les prix : Steal an Egg vend son X2 Money 399 R$ et son X2 Growth 46
 
 ## L'interface
 
-- À gauche, de gros boutons avec icônes : Shop, Index, Rebirth, Lab, Daily (et Admin pour toi).
-- En bas à gauche : ta Speed (avec ton multiplicateur), ton cash, ton revenu par seconde, la prochaine boutique à débloquer avec une barre de progression, et le Friend Boost.
-- À droite : Freeze Guards, et des téléporteurs Plot (ta galerie), Lab et Train. Impossible de se téléporter en portant une carte.
-- En haut : l'endroit où tu es (zone sûre, numéro de boutique, nom du gardien) et les events en cours.
-- En bas à droite : la prévision du prochain event.
+Peu de boutons, gros et brillants, façon simulateur Roblox :
+- **À gauche** : le bandeau Daily Rewards et 4 tuiles (Shop, Pass, Rebirth, Index). Un badge rouge apparaît quand le daily est prêt ou que tu peux rebirth.
+- **À droite** : My Base (badge quand des cartes sont gradées), et 2 offres mises en avant, Freeze Guards et x2 Cash.
+- **En bas à gauche** : ta Speed et son multiplicateur, la vitesse conseillée pour la prochaine boutique, ton cash et ton revenu, et le Friend Boost avec le bouton "+" pour inviter.
+- **En haut** : où tu es (zone sûre, ou boutique avec son gardien et sa vitesse conseillée) et les events en cours.
+- **En bas à droite** : la prévision du prochain event.
+- **Les fenêtres** ont un bandeau titre coloré avec icône. Le shop a des onglets Passes, Boosts et Friends, et la zone de codes tout en bas.
 
 ## Le style
 
-Tout est construit en briques à picots, comme dans tes captures de référence, avec une décoration propre à chaque endroit :
-- **Le hub :** pelouse, fontaine, arbres, bancs et lampadaires.
-- **Les galeries :** façon musée, avec tapis rouge, barrières dorées, appliques, tableaux et vitrines en verre.
-- **Les boutiques :** chacune a un décor à son thème, par exemple des bornes d'arcade, une fontaine de centre commercial, des bibliothèques, des colonnes de musée, une porte de coffre-fort, des nuages ou des planètes. Elles ont toutes une enseigne lumineuse, des vitrines, un auvent rayé, des plafonniers et un comptoir.
+Tout est construit en briques à picots :
+- **Les bases** : plateforme en damier, murets et piliers lumineux, arche d'entrée avec le nom du joueur.
+- **Les boutiques** : façade avec pilastres, corniche, enseigne lumineuse, vitrines avec des affiches de cartes et auvent rayé. À l'intérieur, un sol en damier, des étagères de boosters, des affiches et des plafonniers.
+- **Le décor de chaque boutique** suit son thème : bornes d'arcade, fontaine, bibliothèques, colonnes, coffre-fort, nuages, planètes…
+- **La lumière** : en Halloween, une lumière de fin d'après-midi orangée (plus de nuit sombre).
 
 ## Panneau admin ("admin abuse")
 
