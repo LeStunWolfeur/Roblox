@@ -61,7 +61,7 @@ function GradingService.Deliver(player: Player, id: string, finish: string)
 		table.insert(data.Raw, { Id = id, F = finish })
 		Remotes.Notify:FireClient(player, "Lab busy: " .. Cards.Name(id) .. " is waiting in line", "info")
 	else
-		local value = math.floor(Cards.SellValue(id, finish, 6) * 0.5)
+		local value = Cards.RawSellValue(id, finish)
 		data.Cash += value
 		player:SetAttribute("Cash", data.Cash)
 		Remotes.Notify:FireClient(player, ("Lab full! %s sold for %s"):format(Cards.Name(id), Format.cash(value)), "error")
@@ -131,7 +131,7 @@ function GradingService.SellRaw(player: Player, index: number)
 		return
 	end
 	table.remove(data.Raw, index)
-	local value = math.floor(Cards.SellValue(raw.Id, raw.F, 6) * 0.5)
+	local value = Cards.RawSellValue(raw.Id, raw.F)
 	data.Cash += value
 	player:SetAttribute("Cash", data.Cash)
 	Remotes.Notify:FireClient(player, ("Sold raw %s for %s"):format(Cards.Name(raw.Id), Format.cash(value)), "cash")

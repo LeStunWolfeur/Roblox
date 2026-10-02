@@ -51,10 +51,10 @@ local panel = Kit.well({
 	Radius = 8,
 })
 local head = Kit.tile({ Parent = panel, Size = UDim2.new(1, 0, 0, 56), Palette = "Lime", Border = 4, Radius = 8 })
-Icons3D.view("treadmill", { Parent = panel, Size = UDim2.fromOffset(86, 86), Position = UDim2.fromOffset(-24, -30), Rotation = -6, ZIndex = 4 })
-local title = Kit.text({ Parent = head, Text = "TRAINING!", Size = UDim2.new(1, -90, 0, 40), Position = UDim2.fromOffset(70, 8), TextXAlignment = Enum.TextXAlignment.Left, Stroke = 3.5 })
-local rateLabel = Kit.text({ Parent = panel, Text = "", Size = UDim2.new(0.5, -10, 0, 30), Position = UDim2.fromOffset(16, 66), TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = Kit.Colors.Speed, Stroke = 3 })
-local nextLabel = Kit.text({ Parent = panel, Text = "", Size = UDim2.new(0.5, -10, 0, 22), Position = UDim2.fromOffset(16, 100), TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = Color3.fromRGB(210, 215, 230), Stroke = 2.5 })
+Icons3D.view("treadmill", { Parent = panel, Size = UDim2.fromOffset(120, 120), Position = UDim2.fromOffset(-40, -52), Rotation = -6, ZIndex = 4 })
+local title = Kit.text({ Parent = head, Text = "TRAINING!", Size = UDim2.new(1, -100, 0, 40), Position = UDim2.fromOffset(80, 8), TextXAlignment = Enum.TextXAlignment.Left, Stroke = 3.5 })
+local rateLabel = Kit.text({ Parent = panel, Text = "", Size = UDim2.new(0.44, -10, 0, 30), Position = UDim2.fromOffset(16, 66), TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = Kit.Colors.Speed, Stroke = 3 })
+local nextLabel = Kit.text({ Parent = panel, Text = "", Size = UDim2.new(0.44, -10, 0, 22), Position = UDim2.fromOffset(16, 100), TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = Color3.fromRGB(210, 215, 230), Stroke = 2.5 })
 local upFace, _, upLabel = Kit.button({
 	Parent = panel,
 	Size = UDim2.fromOffset(150, 64),
@@ -86,11 +86,23 @@ local function refreshUI()
 		return
 	end
 	local tier, tierIndex = Config.TreadmillTier(level)
-	title.Text = ("%s Treadmill  ·  Lv %d"):format(tier.Name, level)
-	Kit.paint(head, ({ "Grey", "Green", "Blue", "Purple", "Yellow", "Pink" })[tierIndex] or "Lime")
+	title.Text = ("%s Treadmill  ·  Lv %d / %d"):format(tier.Name, level, Config.TreadmillMaxLevel)
+	Kit.paint(head, ({ "Grey", "Green", "Blue", "Purple", "Gold", "Red", "Cyan", "Candy", "Rainbow" })[tierIndex] or "Lime")
 	rateLabel.Text = ("+%s Speed/s"):format(Format.short(rate))
-	local nextTier = Config.TreadmillTiers[tierIndex + 1]
-	nextLabel.Text = nextTier and ("New look at level %d"):format(nextTier.From) or "Best treadmill!"
+	-- temps restant avant la vitesse conseillée de la prochaine boutique (on peut rester AFK)
+	local speed = player:GetAttribute("Speed") or 0
+	local target
+	for _, zone in Config.Zones do
+		if speed < zone.Speed then
+			target = zone
+			break
+		end
+	end
+	if target and rate > 0 then
+		nextLabel.Text = ("%s in %s (AFK is fine!)"):format(target.Name, Format.time((target.Speed - speed) / rate))
+	else
+		nextLabel.Text = "Fast enough for every shop!"
+	end
 	if cost then
 		upLabel.Text = "UPGRADE"
 		costLabel.Text = Format.cash(cost)
@@ -102,6 +114,7 @@ local function refreshUI()
 	end
 end
 player:GetAttributeChangedSignal("Cash"):Connect(refreshUI)
+player:GetAttributeChangedSignal("Speed"):Connect(refreshUI)
 
 --------------------------------------------------------------------
 -- Animation de course (on réutilise celle du personnage)
@@ -206,6 +219,30 @@ end)
 UserInputService.InputBegan:Connect(function(input, processed)
 	if active and LEAVE_KEYS[input.KeyCode] and not processed then
 		Remotes.Action:FireServer("TrainStop")
+	end
+end)
+
+--------------------------------------------------------------------
+-- Anti-AFK : Roblox déconnecte au bout de 20 minutes sans rien toucher.
+-- Si on est sur le tapis, on demande au serveur de nous faire revenir dans
+-- ce même serveur juste avant (on se retrouve remis sur son tapis).
+--------------------------------------------------------------------
+local lastInput = os.clock()
+UserInputService.InputBegan:Connect(function()
+	lastInput = os.clock()
+end)
+local AFK_LIMIT = 17 * 60
+player.Idled:Connect(function(idleTime: number)
+	if active and idleTime >= AFK_LIMIT then
+		Remotes.Action:FireServer("AfkRejoin")
+	end
+end)
+task.spawn(function()
+	while true do
+		task.wait(30)
+		if active and os.clock() - lastInput >= AFK_LIMIT then
+			Remotes.Action:FireServer("AfkRejoin")
+		end
 	end
 end)
 

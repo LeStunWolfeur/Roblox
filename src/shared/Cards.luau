@@ -190,9 +190,16 @@ function Cards.IncomeOf(id: string, finish: string?, grade: number?): number
 	return c.Income * f.Mult * g
 end
 
--- Prix de revente : 90 secondes de revenu
+-- Prix de revente : 25 secondes de revenu (on ne rachète pas cher, la carte rapporte
+-- bien plus en restant exposée)
+Cards.SellSeconds = 25
 function Cards.SellValue(id: string, finish: string?, grade: number?): number
-	return math.floor(Cards.IncomeOf(id, finish, grade) * 90)
+	return math.max(1, math.floor(Cards.IncomeOf(id, finish, grade) * Cards.SellSeconds))
+end
+
+-- Une carte pas encore gradée se revend moitié prix
+function Cards.RawSellValue(id: string, finish: string?): number
+	return math.max(1, math.floor(Cards.SellValue(id, finish, 6) * 0.5))
 end
 
 -- Saison active à une date donnée (os.date("!*t") côté serveur)

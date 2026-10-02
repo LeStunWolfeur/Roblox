@@ -239,12 +239,8 @@ function GalleryService.Assign(player: Player)
 			s.pending = 0
 			galleryOf[player] = g
 			g.Folder:SetAttribute("OwnerId", player.UserId)
-			g.SignLabel.Text = player.DisplayName:upper() .. "'S BASE"
-			for _, label in g.SignLabel.Parent.Parent:GetChildren() do
-				local l = label:FindFirstChildOfClass("TextLabel")
-				if label:IsA("SurfaceGui") and l then
-					l.Text = player.DisplayName:upper() .. "'S BASE"
-				end
+			for _, l in g.SignTitles do
+				l.Text = player.DisplayName:upper() .. "'S BASE"
 			end
 			player:SetAttribute("GalleryIndex", g.Index)
 			GalleryService.Render(player)
@@ -265,15 +261,15 @@ function GalleryService.Release(player: Player)
 	s.pending = 0
 	galleryOf[player] = nil
 	g.Folder:SetAttribute("OwnerId", nil)
-	for _, label in g.SignLabel.Parent.Parent:GetChildren() do
-		local l = label:FindFirstChildOfClass("TextLabel")
-		if label:IsA("SurfaceGui") and l then
-			l.Text = "FREE BASE"
-		end
+	for _, l in g.SignTitles do
+		l.Text = "FREE BASE"
+	end
+	for i, l in g.SignSubs do
+		l.Text = i == 1 and "Join to claim it" or ""
 	end
 	g.MachineTag.Text = ""
 	Hub.Training.Render(g, nil)
-	g.MachineLabel.Text = "GRADING LAB"
+	g.MachineLabel.Text = ""
 	g.CollectLabel.Text = ""
 	for i = 1, #g.Cases do
 		renderCase(g, i)
@@ -331,7 +327,11 @@ function GalleryService.Start(built)
 							ready += 1
 						end
 					end
-					g.MachineLabel.Text = ("GRADING LAB\n%d / %d SLOTS"):format(busy, Hub.Grading.SlotCount(player))
+					g.MachineLabel.Text = ("%d / %d SLOTS IN USE"):format(busy, Hub.Grading.SlotCount(player))
+					-- revenu de la base affiché sur les enseignes
+					for _, l in g.SignSubs do
+						l.Text = Format.cash(perSecond) .. "/s  ·  " .. #data.Cards .. " cards"
+					end
 					g.MachineTag.Text = ready > 0 and (ready .. " CARD" .. (ready > 1 and "S" or "") .. " READY!") or ""
 				end
 			end

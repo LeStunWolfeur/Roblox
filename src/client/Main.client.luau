@@ -303,6 +303,36 @@ local shopScroll = scroller(shopContent, UDim2.new(1, 0, 1, -70))
 list(shopScroll, 14)
 pad(shopScroll, 4, 4)
 
+-- DOLLARS : trois packs de cash, en premier dans le shop
+local cashAmounts: { { label: TextLabel, key: string } } = {}
+do
+	Kit.text({ Parent = shopScroll, Text = "Cash", Size = UDim2.new(1, -14, 0, 34), TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = -2, TextColor3 = C.Money, Stroke = 3 })
+	local row = Kit.new("Frame", { Parent = shopScroll, BackgroundTransparency = 1, Size = UDim2.new(1, -14, 0, 214), LayoutOrder = -1 })
+	grid(row, Vector2.new(236, 214), 12, 3)
+	for i, info in { { "CashSmall", "cash", "Green", "Cash Bag" }, { "CashBig", "cashpile", "Lime", "Cash Vault" }, { "CashHuge", "cashpile", "Gold", "Cash Mountain" } } do
+		local tile = Kit.tile({ Parent = row, Palette = info[3], LayoutOrder = i, Border = 3, Rot = 20 })
+		icon(info[2], { Parent = tile, Size = UDim2.fromOffset(i == 3 and 108 or 92, i == 3 and 108 or 92), Position = UDim2.new(0.5, 0, 0, i == 3 and -4 or 4), AnchorPoint = Vector2.new(0.5, 0), ZIndex = 2 })
+		Kit.text({ Parent = tile, Text = info[4], Size = UDim2.new(1, -12, 0, 26), Position = UDim2.new(0.5, 0, 0, 98), AnchorPoint = Vector2.new(0.5, 0), Stroke = 2.5 })
+		local amount = Kit.text({ Parent = tile, Text = "", Size = UDim2.new(1, -12, 0, 26), Position = UDim2.new(0.5, 0, 0, 124), AnchorPoint = Vector2.new(0.5, 0), TextColor3 = C.Money, Stroke = 3 })
+		table.insert(cashAmounts, { label = amount, key = info[1] })
+		local _, price = robuxButton({ Parent = tile, Size = UDim2.new(1, -24, 0, 42), Position = UDim2.new(0.5, 0, 1, -8), AnchorPoint = Vector2.new(0.5, 1), Palette = "Green" }, function()
+			send("BuyProduct", info[1])
+		end)
+		productPrice(price, info[1])
+		if i == 3 then
+			Kit.tag({ Parent = tile, Text = "BEST!", Position = UDim2.new(1, -24, 0, 18), Size = UDim2.fromOffset(80, 30), Rotation = 18 })
+		end
+	end
+end
+local function refreshCashAmounts()
+	local income = player:GetAttribute("Income") or 0
+	for _, c in cashAmounts do
+		local product = Config.Products[c.key]
+		c.label.Text = "+" .. Format.cash(math.max(product.Minimum, math.floor(income * 60 * product.Minutes)))
+	end
+end
+refreshCashAmounts()
+
 -- carte "Mystery Pack" avec les chances
 do
 	local card = Kit.tile({ Parent = shopScroll, Size = UDim2.new(1, -14, 0, 230), Palette = "Rainbow", LayoutOrder = 1, Border = 4, Rot = 15 })
@@ -359,7 +389,7 @@ end
 -- boosts
 Kit.text({ Parent = shopScroll, Text = "Boosts", Size = UDim2.new(1, -14, 0, 34), TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 3, Stroke = 3 })
 local boostGrid = Kit.new("Frame", { Parent = shopScroll, BackgroundTransparency = 1, Size = UDim2.new(1, -14, 0, 2 * 196 + 12), LayoutOrder = 4 })
-grid(boostGrid, Vector2.new(178, 196), 12, 4)
+grid(boostGrid, Vector2.new(236, 196), 12, 3)
 local BOOSTS = {
 	{ "FreezeGuards", "snowflake", "Cyan", "Freeze Guards", "30s for everyone" },
 	{ "ServerLuck", "clover", "Green", "Server Luck x2", "15 min, whole server" },
@@ -367,8 +397,6 @@ local BOOSTS = {
 	{ "InstantGrade", "clock", "Blue", "Grade All Now", "Finish your lab" },
 	{ "SpeedSmall", "bolt", "Yellow", "Speed Boost", "10 min of training" },
 	{ "SpeedBig", "bolt", "Orange", "Mega Speed", "1 hour of training" },
-	{ "CashSmall", "cash", "Green", "Cash Bag", "10 min of income" },
-	{ "CashBig", "cashpile", "Gold", "Cash Vault", "1 hour of income" },
 }
 for i, b in BOOSTS do
 	local tile = Kit.tile({ Parent = boostGrid, Palette = b[3], LayoutOrder = i, Border = 3 })
@@ -431,6 +459,7 @@ do
 end
 
 refreshers.Shop = function()
+	refreshCashAmounts()
 	if not state then
 		return
 	end
@@ -754,7 +783,7 @@ do
 	list(strip, 4, true)
 	local tierChips = {}
 	for i, tier in Config.TreadmillTiers do
-		tierChips[i] = Kit.new("Frame", { Parent = strip, Size = UDim2.fromOffset(34, 14), BackgroundColor3 = tier.Color, LayoutOrder = i }, { Kit.corner(3), Kit.stroke(2) })
+		tierChips[i] = Kit.new("Frame", { Parent = strip, Size = UDim2.fromOffset(22, 14), BackgroundColor3 = tier.Color, LayoutOrder = i }, { Kit.corner(3), Kit.stroke(2) })
 	end
 	local cashBtn, _, cashLabel = Kit.button({ Parent = r1, Size = UDim2.fromOffset(150, 56), Position = UDim2.new(1, -176, 0.5, 0), AnchorPoint = Vector2.new(1, 0.5), Palette = "Green", Text = "$0", TextStroke = 3 }, function()
 		send("UpgradeTreadmill")
@@ -789,9 +818,9 @@ refreshers.Upgrades = function()
 	t.title.Text = ("%s Treadmill  ·  Lv %d / %d"):format(tier.Name, level, Config.TreadmillMaxLevel)
 	t.sub.Text = ("+%s Speed/s while you run"):format(Format.short(state.TreadmillRate))
 	local nextTier = Config.TreadmillTiers[tierIndex + 1]
-	t.sub2.Text = nextTier and ("%s look at level %d"):format(nextTier.Name, nextTier.From) or "Top look unlocked"
+	t.sub2.Text = nextTier and ("Next: %s, +%s Speed/s"):format(nextTier.Name, Format.short(Config.TreadmillRate(level + 1) * state.SpeedMultiplier)) or "Supreme treadmill: the best one!"
 	for i, chip in t.chips do
-		chip.Size = UDim2.fromOffset(34, i == tierIndex and 18 or 12)
+		chip.Size = UDim2.fromOffset(22, i == tierIndex and 18 or 12)
 		chip.BackgroundTransparency = i <= tierIndex and 0 or 0.6
 	end
 	if state.TreadmillCost then
@@ -818,6 +847,83 @@ refreshers.Upgrades = function()
 	l.sub.Text = ("+%d slot every rebirth"):format(Config.GradingSlotsPerRebirth)
 	l.sub2.Text = state.Passes.MoreGrading and "+2 Grading Slots pass: owned" or "Grade more cards at the same time"
 	l.btn.Visible = not state.Passes.MoreGrading
+end
+
+--------------------------------------------------------------------
+-- VENTE (stand "Sell Cards" au bout de la rue)
+--------------------------------------------------------------------
+local sellContent, sellHeader = makePanel("Sell", "Sell Cards", "Gold", "cashpile", Vector2.new(880, 590))
+local sellFilter = "all"
+local sellConfirm = false
+local sellFilterButtons = {}
+local sellTotal = Kit.text({ Parent = sellContent, Text = "", Size = UDim2.new(0.42, 0, 0, 34), Position = UDim2.fromOffset(0, 2), TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = C.Money, Stroke = 3 })
+local sellFilterRow = Kit.new("Frame", { Parent = sellContent, BackgroundTransparency = 1, Size = UDim2.fromOffset(380, 38), Position = UDim2.new(1, 0, 0, 0), AnchorPoint = Vector2.new(1, 0) })
+list(sellFilterRow, 8, true, Enum.HorizontalAlignment.Right)
+local sellScroll = scroller(sellContent, UDim2.new(1, 0, 1, -48), UDim2.fromOffset(0, 48))
+local sellEmpty = Kit.text({ Parent = sellContent, Text = "No cards to sell here. Steal some in the shops!", Size = UDim2.new(1, -40, 0, 34), Position = UDim2.new(0.5, 0, 0.45, 0), AnchorPoint = Vector2.new(0.5, 0.5), TextColor3 = Color3.fromRGB(190, 195, 210), Stroke = 2.5, Visible = false })
+grid(sellScroll, Vector2.new(150, 284), 12, 5)
+pad(sellScroll, 6, 4)
+local sellAllFace, sellAllLabel
+sellAllFace, _, sellAllLabel = Kit.button({ Parent = sellHeader, Size = UDim2.fromOffset(220, 52), Position = UDim2.new(1, -78, 0, 10), AnchorPoint = Vector2.new(1, 0), Palette = "Red", Text = "SELL ALL", TextStroke = 3 }, function()
+	if not sellConfirm then
+		-- premier clic : on demande confirmation
+		sellConfirm = true
+		sellAllLabel.Text = "SURE? CLICK AGAIN"
+		Kit.paint(sellAllFace, "Orange")
+		task.delay(3, function()
+			sellConfirm = false
+			sellAllLabel.Text = "SELL ALL"
+			Kit.paint(sellAllFace, "Red")
+		end)
+		return
+	end
+	sellConfirm = false
+	sellAllLabel.Text = "SELL ALL"
+	Kit.paint(sellAllFace, "Red")
+	send("SellAll", sellFilter)
+end)
+
+local function refreshSell()
+	if not state then
+		return
+	end
+	Kit.clear(sellScroll)
+	local items = {}
+	if sellFilter ~= "base" then
+		for i, raw in state.Raw do
+			table.insert(items, { id = raw.Id, f = raw.F, value = Cards.RawSellValue(raw.Id, raw.F), where = "Waiting in lab", action = "SellRaw", arg = i })
+		end
+	end
+	if sellFilter ~= "raw" then
+		for _, c in state.Cards or {} do
+			table.insert(items, { id = c.Id, f = c.F, g = c.G, value = Cards.SellValue(c.Id, c.F, c.G), where = "In your base", action = "SellCase", arg = c.S })
+		end
+	end
+	local total = 0
+	for i, it in items do
+		total += it.value
+		local cell = Kit.well({ Parent = sellScroll, LayoutOrder = i, Color = Color3.fromRGB(10, 12, 20), Transparency = 0.35, Border = 2, BorderColor = Color3.fromRGB(70, 75, 95) })
+		local art = Kit.new("Frame", { Parent = cell, BackgroundTransparency = 1, Size = UDim2.fromOffset(136, 190), Position = UDim2.new(0.5, 0, 0, 7), AnchorPoint = Vector2.new(0.5, 0), ZIndex = 2 })
+		CardArt.build(art, it.id, it.f, { grade = it.g, zIndex = 2, strokeThickness = 3 })
+		Kit.text({ Parent = cell, Text = it.where, Size = UDim2.new(1, -10, 0, 16), Position = UDim2.new(0.5, 0, 0, 200), AnchorPoint = Vector2.new(0.5, 0), TextColor3 = Color3.fromRGB(200, 205, 220), Stroke = 2 })
+		Kit.button({ Parent = cell, Size = UDim2.new(1, -16, 0, 50), Position = UDim2.new(0.5, 0, 1, -8), AnchorPoint = Vector2.new(0.5, 1), Palette = "Green", Text = "SELL " .. Format.cash(it.value), TextStroke = 2.5 }, function()
+			send(it.action, it.arg)
+		end)
+	end
+	sellEmpty.Visible = #items == 0
+	sellTotal.Text = ("%d cards  ·  worth %s"):format(#items, Format.cash(total))
+end
+refreshers.Sell = refreshSell
+
+for i, info in { { "all", "ALL" }, { "raw", "WAITING" }, { "base", "IN BASE" } } do
+	local face = Kit.button({ Parent = sellFilterRow, Size = UDim2.fromOffset(i == 1 and 80 or 130, 38), Palette = i == 1 and "Yellow" or "Dark", Text = info[2], LayoutOrder = i, TextStroke = 2.5 }, function()
+		sellFilter = info[1]
+		for key, f in sellFilterButtons do
+			Kit.paint(f, key == sellFilter and "Yellow" or "Dark")
+		end
+		refreshSell()
+	end)
+	sellFilterButtons[info[1]] = face
 end
 
 --------------------------------------------------------------------
@@ -1287,6 +1393,10 @@ send("Sync")
 ProximityPromptService.PromptTriggered:Connect(function(prompt)
 	if prompt.Name == "LabPrompt" then
 		showPanel("Lab")
+	elseif prompt.Name == "StandUpgrades" then
+		showPanel("Upgrades")
+	elseif prompt.Name == "StandSell" then
+		showPanel("Sell")
 	end
 end)
 

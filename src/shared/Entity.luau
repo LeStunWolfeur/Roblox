@@ -23,6 +23,30 @@ local function hash(s: string): number
 	return h
 end
 
+-- Traits visuels d'une créature (les mêmes tirages que build), pour dessiner
+-- son portrait en 2D sur les cartes : forme du corps, yeux, couleurs.
+function Entity.traits(id: string, finish: string?)
+	local card = Cards.ById[id]
+	local rng = Random.new(hash(id))
+	local body, belly = card.A, card.B
+	if finish == "Gold" then
+		body = Color3.fromRGB(255, 200, 50)
+	elseif finish == "Frozen" then
+		body = Color3.fromRGB(170, 230, 255)
+	elseif finish == "DarkMatter" then
+		body, belly = Color3.fromRGB(30, 10, 50), Color3.fromRGB(160, 60, 255)
+	elseif finish == "Rainbow" then
+		belly = Color3.fromHSV(rng:NextNumber(), 0.6, 1)
+	end
+	if card.Rarity == "Secret" then
+		body = Color3.fromRGB(20, 18, 28)
+	end
+	local shape = rng:NextInteger(1, 4)
+	local eyeStyle = rng:NextInteger(1, 3)
+	local eyeSize = rng:NextNumber(0.8, 1.15)
+	return { Shape = shape, EyeStyle = eyeStyle, EyeSize = eyeSize, Body = body, Belly = belly, Rarity = card.Rarity, Season = card.Season }
+end
+
 -- Construit le modèle. L'origine (pivot) est aux pieds, -Z = face avant.
 function Entity.build(id: string, finish: string?): Model
 	local card = Cards.ById[id]

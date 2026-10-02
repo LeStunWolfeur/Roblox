@@ -138,6 +138,7 @@ function PlayerService.SendState(player: Player)
 		BestZone = data.BestZone,
 		Cases = Hub.Gallery.CaseCount(player),
 		CardCount = #data.Cards,
+		Cards = data.Cards,
 		Raw = data.Raw,
 		Grading = data.Grading,
 		GradingSlots = Hub.Grading.SlotCount(player),
@@ -215,6 +216,39 @@ function actions.SellCase(player: Player, case: any)
 	end
 end
 
+-- Vendre toutes les cartes d'un coup. which = "raw" (en attente au labo),
+-- "base" (exposées dans la base) ou "all"
+function actions.SellAll(player: Player, which: any)
+	local data = DataService.Get(player)
+	if not data or (which ~= "raw" and which ~= "base" and which ~= "all") then
+		return
+	end
+	local total, count = 0, 0
+	if which ~= "base" then
+		for _, raw in data.Raw do
+			total += Cards.RawSellValue(raw.Id, raw.F)
+			count += 1
+		end
+		table.clear(data.Raw)
+	end
+	if which ~= "raw" then
+		for _, c in data.Cards do
+			total += Cards.SellValue(c.Id, c.F, c.G)
+			count += 1
+		end
+		table.clear(data.Cards)
+		Hub.Gallery.Render(player)
+	end
+	if count == 0 then
+		notify(player, "No cards to sell", "error")
+		return
+	end
+	data.Cash += total
+	player:SetAttribute("Cash", data.Cash)
+	notify(player, ("Sold %d card%s for %s"):format(count, count > 1 and "s" or "", Format.cash(total)), "cash")
+	PlayerService.SendState(player)
+end
+
 function actions.UnlockCase(player: Player)
 	Hub.Gallery.UnlockCase(player)
 	PlayerService.SendState(player)
@@ -257,6 +291,30 @@ end
 
 function actions.TrainHold(player: Player, value: any)
 	Hub.Training.SetHolding(player, value)
+end
+
+-- Roblox déconnecte un joueur inactif au bout de 20 minutes, aucun jeu ne peut l'empêcher.
+-- Juste avant, le client demande à revenir dans ce même serveur : le joueur est
+-- sauvegardé, téléporté ici, puis remis sur son tapis. Il peut rester AFK des heures.
+local afkTeleporting: { [Player]: boolean } = {}
+function actions.AfkRejoin(player: Player)
+	if afkTeleporting[player] or not player:GetAttribute("Training") then
+		return
+	end
+	afkTeleporting[player] = true
+	task.spawn(function()
+		DataService.Save(player)
+		local ok = pcall(function()
+			local TeleportService = game:GetService("TeleportService")
+			local options = Instance.new("TeleportOptions")
+			options.ServerInstanceId = game.JobId
+			options:SetTeleportData({ AfkTrain = true })
+			TeleportService:TeleportAsync(game.PlaceId, { player }, options)
+		end)
+		if not ok then
+			afkTeleporting[player] = nil
+		end
+	end)
 end
 
 function actions.Redeem(player: Player, code: any)
@@ -504,9 +562,25 @@ local function onCharacterAdded(player: Player, character: Model)
 		end)
 	end
 	Hub.Combat.OnSpawn(player)
+	-- revenu après un retour anti-AFK : on le remet sur son tapis
+	if player:GetAttribute("AfkReturn") then
+		player:SetAttribute("AfkReturn", nil)
+		task.delay(1.5, function()
+			local base = Hub.Gallery.Get(player)
+			if base and character.Parent then
+				character:PivotTo(CFrame.new(base.Treadmill.Belt.Position + Vector3.new(0, 3, 0)))
+				Hub.Training.StartOn(player)
+			end
+		end)
+	end
 end
 
 local function onPlayerAdded(player: Player)
+	-- retour anti-AFK (voir actions.AfkRejoin)
+	local ok, joinData = pcall(player.GetJoinData, player)
+	if ok and type(joinData) == "table" and type(joinData.TeleportData) == "table" and joinData.TeleportData.AfkTrain then
+		player:SetAttribute("AfkReturn", true)
+	end
 	local stats = Instance.new("Folder")
 	stats.Name = "leaderstats"
 	for _, name in { "Cash", "Speed" } do
@@ -559,6 +633,7 @@ local function onPlayerAdded(player: Player)
 end
 
 local function onPlayerRemoving(player: Player)
+	afkTeleporting[player] = nil
 	Hub.Gallery.Release(player)
 	Hub.Training.Stop(player)
 	friends[player] = nil

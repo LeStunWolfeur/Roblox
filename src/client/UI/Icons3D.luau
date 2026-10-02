@@ -348,23 +348,48 @@ local function newViewport(props: { [string]: any }): ViewportFrame
 	vp.Rotation = props.Rotation or 0
 	vp.ZIndex = props.ZIndex or 1
 	vp.LayoutOrder = props.LayoutOrder or 0
-	vp.Ambient = Color3.fromRGB(165, 165, 175)
-	vp.LightColor = Color3.fromRGB(235, 235, 235)
+	vp.Ambient = Color3.fromRGB(180, 180, 190)
+	vp.LightColor = Color3.fromRGB(255, 255, 255)
 	vp.LightDirection = Vector3.new(-0.6, -1, -0.8)
 	vp.Parent = props.Parent
 	return vp
 end
 
--- props : Parent, Size, Position, AnchorPoint, Rotation, ZIndex, Color, Dir, Fill
-function Icons3D.view(kind: string, props: { [string]: any }): ViewportFrame
-	local vp = newViewport(props)
-	local model = Instance.new("Model")
-	model.Name = kind
+-- props : Parent, Size, Position, AnchorPoint, Rotation, ZIndex, Color, Dir, Fill, Outline
+-- Renvoie un cadre qui contient l'icône et, derrière, sa silhouette sombre un peu plus
+-- grande : ça fait le contour "autocollant" des icônes des simulateurs.
+function Icons3D.view(kind: string, props: { [string]: any }): Frame
+	local holder = Instance.new("Frame")
+	holder.Name = props.Name or "Icon"
+	holder.BackgroundTransparency = 1
+	holder.Size = props.Size or UDim2.fromScale(1, 1)
+	holder.Position = props.Position or UDim2.new()
+	holder.AnchorPoint = props.AnchorPoint or Vector2.zero
+	holder.Rotation = props.Rotation or 0
+	holder.ZIndex = props.ZIndex or 1
+	holder.LayoutOrder = props.LayoutOrder or 0
 	local build = builders[kind] or builders.crate
-	build(model, props.Color)
-	model.Parent = vp
-	frame(vp, model, props.Dir or V(0.55, 0.45, 1), 30, props.Fill or 1.05)
-	return vp
+	local dir = props.Dir or V(0.55, 0.45, 1)
+	local fill = props.Fill or 1.12
+	local function layer(scale: number, z: number): ViewportFrame
+		local vp = newViewport({ Parent = holder, Size = UDim2.fromScale(scale, scale), Position = UDim2.fromScale(0.5, 0.5), AnchorPoint = Vector2.new(0.5, 0.5), ZIndex = z })
+		local model = Instance.new("Model")
+		model.Name = kind
+		build(model, props.Color)
+		model.Parent = vp
+		frame(vp, model, dir, 30, fill)
+		return vp
+	end
+	if props.Outline ~= false then
+		local outline = layer(1.1, holder.ZIndex)
+		outline.Name = "Outline"
+		outline.ImageColor3 = Color3.fromRGB(22, 18, 34)
+		outline.Position = UDim2.new(0.5, 0, 0.5, 2)
+	end
+	local main = layer(1, holder.ZIndex + 1)
+	main.Name = "Main"
+	holder.Parent = props.Parent
+	return holder
 end
 
 -- créature d'une carte (silhouette noire si pas encore découverte)

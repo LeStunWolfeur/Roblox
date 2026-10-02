@@ -215,6 +215,13 @@ end
 
 -- Applique (ou change) la palette d'une tuile
 function Kit.paint(face: Frame, palette: any)
+	-- rien à faire si la tuile a déjà cette palette (évite de recréer le dégradé)
+	if type(palette) == "string" then
+		if face:GetAttribute("Pal") == palette then
+			return
+		end
+		face:SetAttribute("Pal", palette)
+	end
 	local pal = typeof(palette) == "table" and palette or Kit.Palettes[palette]
 	local grad = face:FindFirstChild("Paint")
 	if grad then

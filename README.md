@@ -16,9 +16,14 @@ Fichier prêt à ouvrir : `build/StealACard.rbxl`. Toute la map est générée p
 ## Les lieux
 
 **La rue des bases (zone sûre)** : 8 bases de joueurs, 4 de chaque côté de la rue, juste avant les boutiques. Dans chaque base :
-- **Le tapis de course** (devant à droite) : E pour monter, et ton personnage court tout seul. Plus le tapis est amélioré, plus il court vite et plus la Speed monte, avec des "+X" qui s'envolent. F (ou le bouton UPGRADE) pour l'améliorer : 30 niveaux, payables en cash, ou +1 niveau en Robux. Son look change tous les 5 niveaux : Basic, Sport (bandes vertes, serviette, gourde), Pro (néons bleus, enceintes, arche), Turbo (ventilateurs et ailerons violets), Hyper (or, cristaux, orbes) et Quantum (cristaux, anneaux lumineux). X pour descendre.
+- **Le tapis de course** (devant à droite) : E pour monter, et ton personnage court tout seul. Tu peux rester AFK dessus, la Speed continue de monter. **9 niveaux**, chacun avec son propre modèle 3D (voir `docs/treadmill-tiers.png`) : Common (gris métal), Uncommon (néons verts), Rare (néons bleus), Epic (violet), Legendary (or), Mythic (rouge avec pointes), Divine (blanc et cyan, cristaux qui tournent autour), Ancient (bande galaxie, planètes en orbite) et Supreme (or et blanc, ailes, auréole, nuages). Les flèches de la bande défilent plus vite à chaque niveau. X pour descendre.
+- **Le bouton d'amélioration**, à côté du tapis : un gros bouton rond sur un socle, avec le prix affiché au-dessus ("UPGRADE > RARE, $2.50K"). Tu cliques dessus pour passer au niveau suivant. L'étiquette est verte si tu as l'argent, grise sinon, dorée au niveau max. F marche aussi, et +1 niveau existe en Robux.
 - **16 présentoirs** pour exposer tes cartes gradées. Ils produisent du cash, à ramasser sur la dalle verte. Les premiers sont ouverts, les suivants s'achètent.
 - **La machine de gradation** au fond (E pour l'ouvrir). Les cartes volées y arrivent toutes seules. La gradation continue même déconnecté, et un panneau "X CARDS READY!" s'affiche au-dessus quand c'est prêt.
+
+**Au bout de la rue des bases, deux stands** (avec comptoir, étagères, auvent rayé, grande enseigne et un vendeur) :
+- **UPGRADES** : ouvre la fenêtre des améliorations (tapis, vitrines, labo).
+- **SELL CARDS** : vendre ses cartes une par une ou toutes d'un coup, avec un filtre (toutes, en attente au labo, exposées dans la base). "SELL ALL" demande une confirmation. Une carte se revend 25 secondes de son revenu (moitié prix si elle n'est pas encore gradée) : c'est volontairement peu, une carte rapporte bien plus en restant exposée.
 
 **La rue des boutiques** : la suite de la même rue, avec 10 boutiques à thème.
 
@@ -57,7 +62,38 @@ Il n'y a pas de portail bloquant : avant chaque zone, un grand panneau donne la 
 
 ## Progression
 
-- **48 cartes**, 7 raretés (Common à Secret). Chaque carte a sa créature en 3D, générée à partir de la carte : forme du corps, yeux, bouche, accessoires selon la rareté (feuille, chapeau, cornes, ailes, couronne et cape, auréole, aura pour les Secret), matière selon la finition (or, glace, hanté, arc-en-ciel…).
+**L'argent et la vitesse.** La boucle : voler des cartes → les exposer pour gagner du cash → améliorer le tapis → plus de Speed → voler des cartes plus rares. Les chiffres sont dans `Config.luau` :
+
+| Niveau du tapis | Speed/s | Prix pour y passer | Boutique visée | Temps de course pour l'atteindre |
+|---|---|---|---|---|
+| 1 Common | 5 | gratuit | 2 Comic Corner (600) | 2 min |
+| 2 Uncommon | 30 | $250 | 3 Pixel Arcade (6K) | 3 min |
+| 3 Rare | 180 | $2.5K | 4 Mall Kiosk (50K) | 4 min |
+| 4 Epic | 1.1K | $25K | 5 Collector's Den (400K) | 5 min |
+| 5 Legendary | 6.5K | $200K | 6 Auction House (3M) | 7 min |
+| 6 Mythic | 40K | $1.5M | 7 Bank Vault (25M) | 9 min |
+| 7 Divine | 240K | $12M | 8 Grand Museum (200M) | 12 min |
+| 8 Ancient | 1.4M | $100M | 9 Sky Exchange (1.6B) | 17 min |
+| 9 Supreme | 8.5M | $1B | 10 Cosmic Archive (12B) | 20 min |
+
+Chaque niveau donne environ 6 fois plus de Speed. Chaque prix correspond à quelques minutes du revenu qu'on a à ce stade. Il faut environ 1 h 20 de course pour tout débloquer sans rebirth, sans compter le temps de vol. Les rebirths (+25 % de Speed chacun) et le pass 2x Training raccourcissent tout ça.
+
+**Rester AFK.** Sur le tapis, on peut laisser tourner : la Speed monte et les cartes exposées rapportent. Le panneau du tapis affiche le temps restant avant la vitesse conseillée de la prochaine boutique. Roblox déconnecte tout joueur inactif au bout de 20 minutes, et un jeu ne peut pas l'empêcher. Le jeu fait donc revenir le joueur dans le même serveur à 17 minutes d'inactivité, puis le remet sur son tapis. C'est une méthode courante (le système AutoRejoin fait pareil). Elle ne marche que dans le jeu publié, pas dans Studio.
+
+**Sentir la vitesse.** Quand tu cours vite, le champ de vision s'élargit, des traits de vitesse défilent sur les bords de l'écran et une traînée colorée te suit. Sa couleur change selon la boutique que tu peux viser. Dès que tu atteins la vitesse conseillée d'une nouvelle boutique, un gros message l'annonce ("SPEED 6K REACHED!").
+
+**Les cartes.** Nouveau design façon carte à collectionner :
+- un cadre métallisé à la couleur de la rareté, ou de la finition (or, arc-en-ciel, matière noire…) ;
+- le nom et le revenu en haut ;
+- le portrait de la créature sur un halo ;
+- un ruban de rareté avec des étoiles et un encart finition et note ;
+- le numéro (#012/046) et le set ;
+- une étiquette "GRADE 10" façon carte gradée.
+
+Aperçu dans `docs/cards.png`.
+
+
+- **46 cartes**, 7 raretés (Common à Secret). Chaque carte a sa créature en 3D, générée à partir de la carte : forme du corps, yeux, bouche, accessoires selon la rareté (feuille, chapeau, cornes, ailes, couronne et cape, auréole, aura pour les Secret), matière selon la finition (or, glace, hanté, arc-en-ciel…).
 - **Finitions** tirées quand la carte apparaît : Holo x1.5, Gold x2.5, Rainbow x5, Dark Matter x10, et deux finitions de saison, Haunted et Frozen (x4).
 - **Note de condition** 1 à 10 tirée au labo : de x0.5 (Poor) à x2.5 (GEM MINT 10).
 - **Index** : toutes les créatures, en silhouette noire tant que tu ne les as pas trouvées. Pour chacune : son revenu, la première boutique où elle peut apparaître, la boutique où elle est la plus fréquente et sa chance par présentoir (par exemple "Shop 6+, best 9, 1 in 2K"). Les cartes rares n'apparaissent que dans les dernières boutiques. Filtres par rareté. Chaque carte différente découverte donne +1 % de cash, pour toujours.
@@ -78,6 +114,7 @@ Il n'y a pas de portail bloquant : avant chaque zone, un grand panneau donne la 
 - **Starter Pack** : une carte Legendary ou mieux garantie, 15 min de cash et 15 min de Speed. Achetable une seule fois, mis en avant à droite de l'écran tant que tu ne l'as pas.
 - **Skip Rebirth** : +1 rebirth sans rien perdre, proposé dans la fenêtre Rebirth à côté du bouton gratuit.
 - **Mystery Pack** (Epic 70 %, Legendary 25 %, Mythic 4,6 %, Secret 0,4 %, chances affichées dans le shop).
+- **Cash** (en premier dans le shop) : Cash Bag (10 min de revenu), Cash Vault (1 h), Cash Mountain (6 h), avec le montant que tu vas recevoir affiché sur chaque pack.
 - Freeze Guards (tous les gardiens gelés 30 s pour tout le serveur), Treadmill +1 Level, Speed Boost et Mega Speed (10 min et 1 h de ton tapis), Grade All Now, Server Luck x2 pour tout le serveur pendant 15 min, Cash Bag et Cash Vault.
 - Sous la barre de vitesse, trois boutons rapides comme dans les références : +10 min Speed, +1 hour Speed, +1 Treadmill.
 
@@ -102,7 +139,7 @@ Repère sur les prix : Steal an Egg vend son X2 Money 399 R$ et son X2 Growth 46
 | Grade All Now | 49 R$ |
 | Server Luck x2 | 99 R$ |
 | Mystery Pack | 79 R$ |
-| Cash Bag / Vault | 29 / 129 R$ |
+| Cash Bag / Vault / Mountain | 29 / 129 / 399 R$ |
 
 ## L'interface
 
@@ -128,7 +165,7 @@ Les fenêtres :
 ## Le style
 
 Tout est construit en briques à picots :
-- **Les bases** : plateforme en damier, murets et piliers lumineux, arche d'entrée avec le nom du joueur.
+- **Les bases** : refaites (voir `docs/base-outside.png`). Un socle sombre avec un liseré lumineux, des murs vitrés façon galerie avec poteaux et rambarde lumineuse, un mur du fond plus haut avec une grande enseigne, des tours d'angle et une entrée avec deux pylônes, un auvent éclairé et un tapis rouge. Les enseignes sont dans le style de l'interface et affichent le nom du joueur, le revenu de la base en direct et le nombre de cartes. La disposition des cartes n'a pas changé.
 - **Les boutiques** : façade avec pilastres, corniche, enseigne lumineuse, vitrines avec des affiches de cartes et auvent rayé. À l'intérieur, un sol en damier, des étagères de boosters, des affiches et des plafonniers.
 - **Le décor de chaque boutique** suit son thème : bornes d'arcade, fontaine, bibliothèques, colonnes, coffre-fort, nuages, planètes…
 - **La lumière** : en Halloween, une lumière de fin d'après-midi orangée (plus de nuit sombre).
@@ -176,7 +213,7 @@ Fais une vraie session de test dans Studio (avec 2 joueurs via Test > Clients an
 
 ```
 src/shared/Config.luau        réglages : zones, vitesse, prix, events, passes, produits
-src/shared/Cards.luau         les 48 cartes, raretés, finitions, notes, saisons
+src/shared/Cards.luau         les 46 cartes, raretés, finitions, notes, saisons
 src/shared/CardArt.luau       dessin des cartes (3D et interface)
 src/shared/Entity.luau        la créature 3D de chaque carte
 src/shared/Odds.luau          chances d'apparition par boutique (Index)
@@ -186,7 +223,11 @@ src/server/Services/          sauvegarde, zones et gardiens, labo, galerie, tapi
 src/client/Main.client.luau   HUD et fenêtres
 src/client/UI/Kit.luau        tuiles, boutons, prix Robux, barres (le style de l'interface)
 src/client/UI/Icons3D.luau    les icônes 3D de l'interface
+src/client/SpeedFX.client     sensation de vitesse, bande du tapis, objets en orbite
 src/client/                   tapis, prompts et effets côté joueur
+src/server/World/TreadmillModels  les 9 tapis en 3D
+src/server/World/Stands       les stands UPGRADES et SELL CARDS
+src/server/World/Signs        enseignes au style de l'interface
 ```
 
 ## Gagner de l'argent réel (DevEx)
@@ -202,3 +243,5 @@ D'après la doc officielle de Roblox, il faut au minimum 30 000 Robux gagnés, a
 - [Meilleurs jeux Roblox de septembre 2026 (Sportskeeda)](https://www.sportskeeda.com/roblox-news/best-roblox-games-to-play-right-now)
 - [CookieRun Card Collection arrive sur Roblox (Pro Game Guides)](https://progameguides.com/roblox/cookierun-card-collection-brings-cookierun-tcg-to-roblox-this-october/)
 - [Roblox Developer Exchange](https://create.roblox.com/docs/production/monetization/developer-exchange)
+- [Déconnexion après 20 min d'inactivité (DevForum)](https://devforum.roblox.com/t/bypass-roblox-afk-kick/1932814)
+- [Revenir dans le même serveur juste avant la déconnexion (AutoRejoin)](https://builtbybit.com/resources/autorejoin-anti-afk-system.102375/)

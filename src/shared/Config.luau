@@ -30,24 +30,35 @@ end
 Config.CarrySpeedMultiplier = 0.85 -- porter une carte ralentit
 Config.StartCash = 0
 
--- Tapis de course : chaque base a le sien, devant l'entrée, améliorable par niveaux.
-Config.TreadmillMaxLevel = 30
+-- Tapis de course : chaque base a le sien, devant l'entrée, avec 9 niveaux.
+-- Équilibrage (voir README) :
+-- - chaque niveau donne environ 6 fois plus de Speed par seconde que le précédent ;
+-- - le prix du niveau suivant vaut quelques minutes du revenu qu'on a quand on en a besoin ;
+-- - avec le bon tapis, il faut 2 à 20 minutes de course (AFK possible) pour atteindre
+--   la vitesse conseillée de la boutique suivante.
+Config.TreadmillMaxLevel = 9
+Config.TreadmillRates = { 5, 30, 180, 1100, 6500, 40000, 240000, 1400000, 8500000 }
+-- prix pour passer au niveau suivant (index = niveau actuel)
+Config.TreadmillCosts = { 250, 2500, 25000, 200000, 1500000, 12000000, 100000000, 1000000000 }
 function Config.TreadmillRate(level: number): number
 	-- Speed gagnée par seconde en courant dessus
-	return math.floor(5 * 1.75 ^ (level - 1))
+	return Config.TreadmillRates[math.clamp(level, 1, Config.TreadmillMaxLevel)]
 end
 function Config.TreadmillCost(level: number): number
 	-- prix pour passer du niveau level au niveau level + 1
-	return math.floor(50 * 2.3 ^ (level - 1))
+	return Config.TreadmillCosts[math.clamp(level, 1, Config.TreadmillMaxLevel - 1)]
 end
--- couleur du tapis selon le niveau (change tous les 5 niveaux)
+-- un look par niveau
 Config.TreadmillTiers = {
-	{ From = 1, Name = "Basic", Color = Color3.fromRGB(170, 175, 190) },
-	{ From = 6, Name = "Sport", Color = Color3.fromRGB(80, 220, 120) },
-	{ From = 11, Name = "Pro", Color = Color3.fromRGB(60, 150, 255) },
-	{ From = 16, Name = "Turbo", Color = Color3.fromRGB(170, 90, 255) },
-	{ From = 21, Name = "Hyper", Color = Color3.fromRGB(255, 190, 40) },
-	{ From = 26, Name = "Quantum", Color = Color3.fromRGB(255, 60, 120) },
+	{ From = 1, Name = "Common", Color = Color3.fromRGB(190, 195, 205) },
+	{ From = 2, Name = "Uncommon", Color = Color3.fromRGB(80, 235, 70) },
+	{ From = 3, Name = "Rare", Color = Color3.fromRGB(40, 140, 255) },
+	{ From = 4, Name = "Epic", Color = Color3.fromRGB(170, 70, 255) },
+	{ From = 5, Name = "Legendary", Color = Color3.fromRGB(255, 195, 40) },
+	{ From = 6, Name = "Mythic", Color = Color3.fromRGB(255, 40, 50) },
+	{ From = 7, Name = "Divine", Color = Color3.fromRGB(60, 230, 255) },
+	{ From = 8, Name = "Ancient", Color = Color3.fromRGB(190, 80, 255) },
+	{ From = 9, Name = "Supreme", Color = Color3.fromRGB(255, 220, 90) },
 }
 function Config.TreadmillTier(level: number)
 	local tier, index = Config.TreadmillTiers[1], 1
@@ -252,8 +263,9 @@ Config.Products = {
 	MysteryPack = { Id = 0, Kind = "Pack", Name = "Mystery Pack", Description = "A raw card sent to your lab. Epic or better." },
 	CashSmall = { Id = 0, Kind = "Cash", Minutes = 10, Minimum = 2000, Name = "Cash Bag", Description = "10 minutes of your income." },
 	CashBig = { Id = 0, Kind = "Cash", Minutes = 60, Minimum = 15000, Name = "Cash Vault", Description = "1 hour of your income." },
+	CashHuge = { Id = 0, Kind = "Cash", Minutes = 360, Minimum = 100000, Name = "Cash Mountain", Description = "6 hours of your income." },
 }
-Config.ProductOrder = { "FreezeGuards", "TreadmillUpgrade", "SpeedSmall", "SpeedBig", "InstantGrade", "ServerLuck", "MysteryPack", "CashSmall", "CashBig" }
+Config.ProductOrder = { "FreezeGuards", "TreadmillUpgrade", "SpeedSmall", "SpeedBig", "InstantGrade", "ServerLuck", "MysteryPack", "CashSmall", "CashBig", "CashHuge" }
 Config.StarterWeights = { Legendary = 85, Mythic = 14, Secret = 1 }
 Config.PackWeights = { Epic = 70, Legendary = 25, Mythic = 4.6, Secret = 0.4 }
 
