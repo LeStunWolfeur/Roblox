@@ -73,10 +73,8 @@ function PlayerService.CashMultiplier(player: Player): number
 	if MonetizationService.Owns(player, "VIP") then
 		m *= Config.VipCashMultiplier
 	end
-	if MonetizationService.Owns(player, "DoubleCash") then
-		m *= 2
-	end
-	m *= 1 + indexCount(data) * Config.IndexBonusPerCard + (data.CashBonus or 0)
+	m *= MonetizationService.TierMult(player, Config.MoneyTiers)
+	m *= 1 + indexCount(data) * Config.IndexBonusPerCard + (data.CashBonus or 0) + Hub.Powers.Bonus(player, "Cash")
 	m *= 1 + PlayerService.FriendBoost(player)
 	-- boost des gros packs
 	if (player:GetAttribute("CashBoostUntil") or 0) > os.time() then
@@ -161,6 +159,13 @@ function PlayerService.SendState(player: Player)
 		},
 		IndexClaimed = data.IndexClaimed,
 		CashBonus = data.CashBonus,
+		Powers = data.Powers,
+		Equipped = data.Equipped,
+		PowerSlots = Hub.Powers.Slots(player),
+		Trail = data.Trail or 0,
+		MoneyTier = MonetizationService.TierMult(player, Config.MoneyTiers),
+		LuckTier = MonetizationService.TierMult(player, Config.LuckTiers),
+		GradeRolls = MonetizationService.TierMult(player, Config.LuckTiers) + Hub.Powers.Bonus(player, "Grade"),
 		CashBoostUntil = player:GetAttribute("CashBoostUntil"),
 		Passes = MonetizationService.OwnedList(player),
 		Index = index,
@@ -292,6 +297,16 @@ function actions.GradeHeld(player: Player)
 end
 
 -- stand Packs
+function actions.EquipPower(player: Player, id: any)
+	if type(id) == "string" and Config.PowerById[id] then
+		Hub.Powers.Equip(player, id)
+	end
+end
+
+function actions.BuyTrail(player: Player)
+	Hub.Powers.BuyTrail(player)
+end
+
 function actions.BuyPack(player: Player, key: any)
 	if type(key) == "string" and Config.Packs[key] then
 		Hub.Packs.Buy(player, key)
@@ -610,6 +625,7 @@ local function onCharacterAdded(player: Player, character: Model)
 		end)
 	end
 	Hub.Combat.OnSpawn(player)
+	Hub.Powers.ApplyTrail(player)
 	-- la carte tenue en main revient dans les mains après une réapparition
 	task.delay(0.5, function()
 		if character.Parent then
@@ -663,6 +679,7 @@ local function onPlayerAdded(player: Player)
 		player:Kick("This server is full, please join another one.")
 		return
 	end
+	Hub.Powers.Clean(player)
 	-- carte qu'il avait en main en partant
 	local saved = DataService.Get(player)
 	if saved and saved.Held then

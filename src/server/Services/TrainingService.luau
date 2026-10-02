@@ -31,6 +31,8 @@ function TrainingService.Multiplier(player: Player): number
 	if MonetizationService.Owns(player, "DoubleSpeed") then
 		m *= 2
 	end
+	-- traînée équipée et cartes pouvoir
+	m *= Hub.Powers.TrailMult(player) * (1 + Hub.Powers.Bonus(player, "Training"))
 	return m
 end
 
@@ -54,46 +56,53 @@ function TrainingService.AddSpeed(player: Player, amount: number)
 	Hub.Combat.UpdateSpeed(player)
 end
 
-local GREEN = { Color3.fromRGB(185, 255, 95), Color3.fromRGB(90, 220, 60), Color3.fromRGB(35, 165, 55), Color3.fromRGB(15, 70, 20) }
-local GREY = { Color3.fromRGB(215, 220, 230), Color3.fromRGB(160, 166, 182), Color3.fromRGB(115, 120, 138), Color3.fromRGB(45, 48, 58) }
-local GOLD = { Color3.fromRGB(255, 250, 170), Color3.fromRGB(255, 210, 60), Color3.fromRGB(230, 140, 20), Color3.fromRGB(100, 55, 0) }
+local GREEN = { Color3.fromRGB(140, 255, 100), Color3.fromRGB(30, 170, 60), Color3.fromRGB(10, 60, 20), Color3.fromRGB(80, 255, 120) }
+local GREY = { Color3.fromRGB(150, 156, 175), Color3.fromRGB(80, 86, 104), Color3.fromRGB(30, 32, 42), Color3.fromRGB(120, 126, 145) }
+local GOLD = { Color3.fromRGB(255, 240, 140), Color3.fromRGB(230, 150, 20), Color3.fromRGB(90, 45, 0), Color3.fromRGB(255, 200, 40) }
 
-local function paintTag(t, pal)
-	t.TagGradient.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, pal[1]),
-		ColorSequenceKeypoint.new(0.5, pal[2]),
-		ColorSequenceKeypoint.new(1, pal[3]),
-	})
-	t.TagStroke.Color = pal[4]
-	t.Button.Color = pal[2]
-	t.ButtonRing.Color = pal[2]
+local function paint(t, pal)
+	local ui = t.Screen
+	ui.PriceGradient.Color = ColorSequence.new(pal[1], pal[2])
+	ui.PriceStroke.Color = pal[3]
+	t.Button.Color = pal[4]
+	t.ButtonRing.Color = pal[4]
 end
 
--- Met à jour l'étiquette de prix du bouton (vert si on peut payer, gris sinon)
+-- Met à jour l'écran de la borne : prochain niveau, gain, prix (vert si on peut payer)
 local function renderTag(base, player: Player?)
 	local t = base.Treadmill
+	local ui = t.Screen
 	if not player then
-		t.TagTitle.Text = "TREADMILL"
-		t.TagPrice.Text = "FREE BASE"
-		t.TagSub.Text = ""
-		paintTag(t, GREY)
+		ui.Level.Text = "LV -"
+		ui.Tier.Text = "FREE BASE"
+		ui.Tier.TextColor3 = Color3.fromRGB(200, 205, 220)
+		ui.Gain.Text = "Waiting for a player"
+		ui.Price.Text = "---"
+		paint(t, GREY)
 		return
 	end
 	local level = TrainingService.Level(player)
+	ui.Level.Text = "LV " .. level
 	if level >= Config.TreadmillMaxLevel then
-		t.TagTitle.Text = "MAX LEVEL"
-		t.TagPrice.Text = Config.TreadmillTier(level).Name:upper()
-		t.TagSub.Text = "+" .. Format.short(TrainingService.BestRate(player)) .. " SPEED/S"
-		paintTag(t, GOLD)
+		local tier = Config.TreadmillTier(level)
+		ui.Tier.Text = tier.Name:upper()
+		ui.Tier.TextColor3 = tier.Color or Color3.fromRGB(255, 215, 60)
+		ui.Gain.Text = "+" .. Format.short(TrainingService.BestRate(player)) .. " SPEED/S"
+		ui.Price.Text = "MAX LEVEL"
+		paint(t, GOLD)
 		return
 	end
 	local cost = Config.TreadmillCost(level)
 	local nextTier = Config.TreadmillTier(level + 1)
-	t.TagTitle.Text = "UPGRADE > " .. nextTier.Name:upper()
-	t.TagPrice.Text = Format.cash(cost)
-	t.TagSub.Text = ("LV %d > %d  ·  x%d SPEED"):format(level, level + 1, math.floor(Config.TreadmillRate(level + 1) / Config.TreadmillRate(level) + 0.5))
+	ui.Tier.Text = nextTier.Name:upper()
+	ui.Tier.TextColor3 = nextTier.Color or Color3.new(1, 1, 1)
+	ui.Gain.Text = ("+%s SPEED/S  (now +%s)"):format(
+		Format.short(Config.TreadmillRate(level + 1) * TrainingService.Multiplier(player)),
+		Format.short(TrainingService.BestRate(player))
+	)
+	ui.Price.Text = Format.cash(cost)
 	local data = DataService.Get(player)
-	paintTag(t, (data and data.Cash >= cost) and GREEN or GREY)
+	paint(t, (data and data.Cash >= cost) and GREEN or GREY)
 end
 
 -- Reconstruit le modèle du tapis quand le niveau change, et met à jour le bouton
@@ -187,20 +196,22 @@ function TrainingService.Start(builtBases)
 	bases = builtBases
 	for _, base in bases do
 		TrainingService.Render(base, nil)
-		local click = base.Treadmill.Button:FindFirstChildOfClass("ClickDetector")
-		if click then
-			click.MouseClick:Connect(function(player: Player)
-				if base.Treadmill.Owner ~= player then
-					Remotes.Notify:FireClient(player, "This is not your treadmill", "error")
-					return
-				end
-				press(base.Treadmill.Button)
-				TrainingService.Upgrade(player)
-			end)
+		for _, target in { base.Treadmill.Button, base.Treadmill.ScreenPart } do
+			local click = target and target:FindFirstChildOfClass("ClickDetector")
+			if click then
+				click.MouseClick:Connect(function(player: Player)
+					if base.Treadmill.Owner ~= player then
+						Remotes.Notify:FireClient(player, "This is not your treadmill", "error")
+						return
+					end
+					press(base.Treadmill.Button)
+					TrainingService.Upgrade(player)
+				end)
+			end
 		end
 	end
 
-	-- l'étiquette du bouton passe au vert dès qu'on a assez d'argent
+	-- le prix de la borne passe au vert dès qu'on a assez d'argent
 	task.spawn(function()
 		while true do
 			task.wait(1)

@@ -74,7 +74,8 @@ function LootService.RollFinish(): string
 	return "Normal"
 end
 
-function LootService.RollGrade(lucky: boolean): number
+-- rolls = nombre de tirages, on garde le meilleur (x2 Luck = 2, x8 Luck = 8...)
+function LootService.RollGrade(rolls: number?): number
 	local function roll()
 		local total = 0
 		for _, w in Cards.GradeWeights do
@@ -90,7 +91,7 @@ function LootService.RollGrade(lucky: boolean): number
 		return 6
 	end
 	local g = roll()
-	if lucky then
+	for _ = 2, math.max(1, rolls or 1) do
 		g = math.max(g, roll())
 	end
 	return g

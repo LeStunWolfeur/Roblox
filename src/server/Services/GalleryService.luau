@@ -360,9 +360,6 @@ local function setSign(g, title: string, sub: string)
 	for _, l in g.SignSubs do
 		l.Text = sub
 	end
-	for _, f in g.SignFrames do
-		f.Visible = title ~= ""
-	end
 end
 
 function GalleryService.Assign(player: Player)
@@ -409,7 +406,7 @@ function GalleryService.Release(player: Player)
 	galleryOf[player] = nil
 	g.Folder:SetAttribute("OwnerId", nil)
 	-- base libre : pas de nom, l'enseigne reste vide
-	setSign(g, "", "")
+	setSign(g, "FREE BASE", "")
 	Hub.Training.Render(g, nil)
 	g.CollectLabel.Text = ""
 	renderFloors(g, 1)
@@ -428,7 +425,7 @@ function GalleryService.Start(built)
 			case.Plinth:SetAttribute("CaseIndex", i)
 			game:GetService("CollectionService"):AddTag(case.Plinth, "Case")
 		end
-		setSign(g, "", "")
+		setSign(g, "FREE BASE", "")
 		renderFloors(g, 1)
 		for i = 1, #g.Cases do
 			renderCase(g, i)

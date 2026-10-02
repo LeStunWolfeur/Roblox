@@ -203,13 +203,69 @@ Config.PackLuckStep = 0.03
 Config.PackLuckMax = 0.45
 Config.PackCashBoost = 0.2
 Config.PackCashBoostTime = 600
+--------------------------------------------------------------------
+-- CARTES POUVOIR : bonus qu'on trouve dans les packs et qu'on équipe
+-- (fenêtre Cards en haut de l'écran). Chaque double fait monter la carte
+-- d'un niveau (max 5) : +25 % d'effet par niveau.
+-- Effets : Training (Speed du tapis), Cash, Luck (packs), Grade (tirages
+-- de note en plus), GuardSlow (gardiens plus lents contre toi), Carry
+-- (moins ralenti en portant une carte).
+--------------------------------------------------------------------
+Config.PowerCards = {
+	{ Id = "sprinter", Name = "Sprinter", Rarity = "Common", Icon = "bolt", Effects = { Training = 0.15 } },
+	{ Id = "piggybank", Name = "Piggy Bank", Rarity = "Common", Icon = "cash", Effects = { Cash = 0.1 } },
+	{ Id = "fourleaf", Name = "Four Leaf", Rarity = "Uncommon", Icon = "clover", Effects = { Luck = 0.1 } },
+	{ Id = "featherbag", Name = "Feather Bag", Rarity = "Uncommon", Icon = "gift", Effects = { Carry = 0.5 } },
+	{ Id = "turbo", Name = "Turbo", Rarity = "Rare", Icon = "treadmill", Effects = { Training = 0.4 } },
+	{ Id = "goldrush", Name = "Gold Rush", Rarity = "Rare", Icon = "cashpile", Effects = { Cash = 0.3 } },
+	{ Id = "ghoststep", Name = "Ghost Step", Rarity = "Epic", Icon = "snowflake", Effects = { GuardSlow = 0.1 } },
+	{ Id = "magnet", Name = "Cash Magnet", Rarity = "Epic", Icon = "magnet", Effects = { Cash = 0.6 } },
+	{ Id = "luckystar", Name = "Lucky Star", Rarity = "Legendary", Icon = "trophy", Effects = { Luck = 0.35, Grade = 1 } },
+	{ Id = "hyperdrive", Name = "Hyperdrive", Rarity = "Legendary", Icon = "arrowup", Effects = { Training = 1 } },
+	{ Id = "midas", Name = "Midas Touch", Rarity = "Mythic", Icon = "crown", Effects = { Cash = 1.5 } },
+	{ Id = "timewarp", Name = "Time Warp", Rarity = "Mythic", Icon = "clock", Effects = { GuardSlow = 0.2, Training = 0.5 } },
+}
+Config.PowerById = {}
+for _, p in Config.PowerCards do
+	Config.PowerById[p.Id] = p
+end
+Config.PowerMaxLevel = 5
+Config.PowerLevelBonus = 0.25
+-- emplacements : 1 au départ, +1 au 1er et au 3e rebirth, +1 avec le pass
+function Config.PowerSlots(rebirths: number, hasPass: boolean): number
+	local n = 1
+	if rebirths >= 1 then
+		n += 1
+	end
+	if rebirths >= 3 then
+		n += 1
+	end
+	return n + (hasPass and 1 or 0)
+end
+
 Config.PackOrder = { "Basic", "Silver", "Gold", "Diamond", "Cosmic" }
 Config.Packs = {
-	Basic = { Name = "Basic Pack", Price = 500, Odds = { Common = 70, Uncommon = 25, Rare = 5 }, Stock = { 3, 6 }, InStock = 1, BonusChance = 0.1, Color = Color3.fromRGB(170, 175, 190) },
-	Silver = { Name = "Silver Pack", Price = 15000, Odds = { Uncommon = 50, Rare = 38, Epic = 11, Legendary = 1 }, Stock = { 2, 4 }, InStock = 0.85, BonusChance = 0.15, Color = Color3.fromRGB(200, 215, 235) },
-	Gold = { Name = "Gold Pack", Price = 400000, Odds = { Rare = 45, Epic = 40, Legendary = 13, Mythic = 2 }, Stock = { 1, 3 }, InStock = 0.6, BonusChance = 0.2, CashBoost = true, Color = Color3.fromRGB(255, 200, 50) },
-	Diamond = { Name = "Diamond Pack", Price = 12000000, Odds = { Epic = 45, Legendary = 42, Mythic = 12, Secret = 1 }, Stock = { 1, 2 }, InStock = 0.35, BonusChance = 0.25, CashBoost = true, Color = Color3.fromRGB(110, 230, 255) },
-	Cosmic = { Name = "Cosmic Pack", Price = 500000000, Odds = { Legendary = 55, Mythic = 38, Secret = 7 }, Stock = { 1, 1 }, InStock = 0.15, BonusChance = 0.35, CashBoost = true, Color = Color3.fromRGB(200, 90, 255) },
+	Basic = { Name = "Basic Pack", Price = 500, Odds = { Common = 70, Uncommon = 25, Rare = 5 }, Stock = { 3, 6 }, InStock = 1, BonusChance = 0.1, PowerChance = 0.2, PowerOdds = { Common = 75, Uncommon = 22, Rare = 3 }, Color = Color3.fromRGB(170, 175, 190) },
+	Silver = { Name = "Silver Pack", Price = 15000, Odds = { Uncommon = 50, Rare = 38, Epic = 11, Legendary = 1 }, Stock = { 2, 4 }, InStock = 0.85, BonusChance = 0.15, PowerChance = 0.3, PowerOdds = { Common = 40, Uncommon = 40, Rare = 17, Epic = 3 }, Color = Color3.fromRGB(200, 215, 235) },
+	Gold = { Name = "Gold Pack", Price = 400000, Odds = { Rare = 45, Epic = 40, Legendary = 13, Mythic = 2 }, Stock = { 1, 3 }, InStock = 0.6, BonusChance = 0.2, PowerChance = 0.45, PowerOdds = { Uncommon = 30, Rare = 42, Epic = 22, Legendary = 6 }, CashBoost = true, Color = Color3.fromRGB(255, 200, 50) },
+	Diamond = { Name = "Diamond Pack", Price = 12000000, Odds = { Epic = 45, Legendary = 42, Mythic = 12, Secret = 1 }, Stock = { 1, 2 }, InStock = 0.35, BonusChance = 0.25, PowerChance = 0.6, PowerOdds = { Rare = 30, Epic = 42, Legendary = 24, Mythic = 4 }, CashBoost = true, Color = Color3.fromRGB(110, 230, 255) },
+	Cosmic = { Name = "Cosmic Pack", Price = 500000000, Odds = { Legendary = 55, Mythic = 38, Secret = 7 }, Stock = { 1, 1 }, InStock = 0.15, BonusChance = 0.35, PowerChance = 1, PowerOdds = { Epic = 35, Legendary = 45, Mythic = 20 }, CashBoost = true, Color = Color3.fromRGB(200, 90, 255) },
+}
+
+--------------------------------------------------------------------
+-- TRAÎNÉES (fenêtre Upgrades) : à acheter dans l'ordre avec le cash du jeu.
+-- La meilleure traînée achetée est équipée : sa couleur te suit et elle
+-- multiplie la Speed gagnée sur le tapis.
+--------------------------------------------------------------------
+Config.Trails = {
+	{ Name = "Red Trail", Price = 1000, Mult = 1.1, Color = Color3.fromRGB(255, 60, 70) },
+	{ Name = "Orange Trail", Price = 15000, Mult = 1.2, Color = Color3.fromRGB(255, 150, 40) },
+	{ Name = "Yellow Trail", Price = 150000, Mult = 1.35, Color = Color3.fromRGB(255, 225, 50) },
+	{ Name = "Green Trail", Price = 1200000, Mult = 1.5, Color = Color3.fromRGB(80, 235, 90) },
+	{ Name = "Cyan Trail", Price = 10000000, Mult = 1.75, Color = Color3.fromRGB(60, 230, 255) },
+	{ Name = "Blue Trail", Price = 80000000, Mult = 2, Color = Color3.fromRGB(60, 110, 255) },
+	{ Name = "Purple Trail", Price = 600000000, Mult = 2.5, Color = Color3.fromRGB(180, 80, 255) },
+	{ Name = "Rainbow Trail", Price = 5000000000, Mult = 3, Color = Color3.fromRGB(255, 120, 200), Rainbow = true },
 }
 
 --------------------------------------------------------------------
@@ -310,8 +366,24 @@ Config.GamePasses = {
 	AutoCollect = { Id = 0, Name = "Auto Collect", Description = "Gallery cash goes straight to your wallet.", Color = Color3.fromRGB(0, 220, 220) },
 	ExtraCases = { Id = 0, Name = "+2 Display Cases", Description = "Two more cases in your base, free.", Color = Color3.fromRGB(190, 120, 255) },
 	Lucky = { Id = 0, Name = "x2 Luck", Description = "Best of two rolls on every grade and luckier packs.", Color = Color3.fromRGB(255, 90, 150) },
+	-- paliers au-dessus (chaque palier est un pass séparé, le jeu prend le plus haut)
+	Money4 = { Id = 0, Name = "x4 Money", Description = "x4 cash from your base. Replaces x2.", Color = Color3.fromRGB(80, 230, 140) },
+	Money5 = { Id = 0, Name = "x5 Money", Description = "x5 cash from your base.", Color = Color3.fromRGB(80, 230, 140) },
+	Money8 = { Id = 0, Name = "x8 Money", Description = "x8 cash from your base. The best one.", Color = Color3.fromRGB(80, 230, 140) },
+	Luck4 = { Id = 0, Name = "x4 Luck", Description = "Best of 4 rolls on every grade, even luckier packs.", Color = Color3.fromRGB(255, 90, 150) },
+	Luck5 = { Id = 0, Name = "x5 Luck", Description = "Best of 5 rolls on every grade.", Color = Color3.fromRGB(255, 90, 150) },
+	Luck8 = { Id = 0, Name = "x8 Luck", Description = "Best of 8 rolls on every grade. The best one.", Color = Color3.fromRGB(255, 90, 150) },
+	ExtraEquip = { Id = 0, Name = "+1 Power Slot", Description = "Equip one more power card.", Color = Color3.fromRGB(255, 170, 40) },
 }
-Config.GamePassOrder = { "VIP", "DoubleCash", "DoubleSpeed", "CheapGrading", "ExtraCases", "AutoCollect", "Lucky" }
+Config.GamePassOrder = { "VIP", "DoubleCash", "Money4", "Money5", "Money8", "Lucky", "Luck4", "Luck5", "Luck8", "DoubleSpeed", "ExtraEquip", "CheapGrading", "ExtraCases", "AutoCollect" }
+
+-- Paliers X Money et X Luck : le bouton à droite de l'écran propose toujours le palier suivant
+Config.MoneyTiers = { { Pass = "DoubleCash", Mult = 2 }, { Pass = "Money4", Mult = 4 }, { Pass = "Money5", Mult = 5 }, { Pass = "Money8", Mult = 8 } }
+Config.LuckTiers = { { Pass = "Lucky", Mult = 2 }, { Pass = "Luck4", Mult = 4 }, { Pass = "Luck5", Mult = 5 }, { Pass = "Luck8", Mult = 8 } }
+-- chance des packs selon le palier de Luck (x2 = +25 %, x4 = +50 %, x8 = +75 %)
+function Config.PackLuckFromTier(mult: number): number
+	return mult <= 1 and 1 or 1 + 0.25 * math.log(mult, 2)
+end
 Config.VipCashMultiplier = 1.5
 
 --------------------------------------------------------------------

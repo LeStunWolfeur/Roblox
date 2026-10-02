@@ -330,7 +330,9 @@ local function makeGuardian(zoneIndex: number)
 
 	local function chaseSpeed(): number
 		local ramp = math.min(g.chased * Config.GuardianRampPerStud, Config.GuardianRampMax)
-		return baseSpeed() * (1 + ramp + rarityBonus())
+		-- cartes pouvoir Ghost Step / Time Warp : le gardien est plus lent contre ce joueur
+		local slow = g.target and math.min(0.5, Hub.Powers.Bonus(g.target, "GuardSlow")) or 0
+		return baseSpeed() * (1 + ramp + rarityBonus()) * (1 - slow)
 	end
 
 	local function insideShop(pos: Vector3): boolean

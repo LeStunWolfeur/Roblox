@@ -51,6 +51,17 @@ function MonetizationService.Owns(player: Player, key: string): boolean
 	return list ~= nil and list[key] == true
 end
 
+-- Plus haut palier possédé dans une liste (Config.MoneyTiers / LuckTiers), 1 si aucun
+function MonetizationService.TierMult(player: Player, tiers): number
+	local best = 1
+	for _, t in tiers do
+		if MonetizationService.Owns(player, t.Pass) then
+			best = math.max(best, t.Mult)
+		end
+	end
+	return best
+end
+
 function MonetizationService.OwnedList(player: Player): { [string]: boolean }
 	local result = {}
 	for key in Config.GamePasses do

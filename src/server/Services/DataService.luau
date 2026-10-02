@@ -35,6 +35,9 @@ local function defaultData()
 		PackBought = {}, -- packs achetés dans le stock en cours
 		IndexClaimed = {}, -- paliers d'Index déjà récupérés
 		CashBonus = 0, -- bonus de cash permanent (récompenses d'Index)
+		Powers = {}, -- cartes pouvoir : [id] = nombre d'exemplaires (niveau)
+		Equipped = {}, -- cartes pouvoir équipées (ids)
+		Trail = 0, -- meilleure traînée achetée (0 = aucune)
 		Rebirths = 0,
 		Index = {}, -- [idCarte] = true pour chaque carte déjà possédée
 		BestZone = 1,

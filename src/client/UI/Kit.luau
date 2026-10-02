@@ -59,8 +59,8 @@ Kit.Palettes = {
 	Gold = { rgb(255, 250, 170), rgb(255, 210, 60), rgb(230, 140, 20), Border = rgb(100, 55, 0) },
 }
 
-Kit.Font = Enum.Font.FredokaOne
-Kit.Title = Kit.Font
+Kit.Font = Enum.Font.FredokaOne -- textes courants
+Kit.Title = Enum.Font.LuckiestGuy -- titres, boutons, gros chiffres
 Kit.Body = Kit.Font
 
 function Kit.new(className: string, props: { [string]: any }?, children: { Instance }?): any
@@ -143,6 +143,45 @@ function Kit.text(props: { [string]: any }): TextLabel
 	return label
 end
 Kit.label = Kit.text
+
+-- Gros titre : Luckiest Guy, blanc légèrement doré, contour épais et ombre portée.
+-- La copie d'ombre suit le texte, la visibilité et la transparence.
+function Kit.headline(props: { [string]: any }): TextLabel
+	local drop = props.Drop or 3
+	local p = table.clone(props)
+	p.Drop = nil
+	p.Font = Kit.Title
+	p.Stroke = props.Stroke or 3.5
+	local shadowProps = table.clone(p)
+	shadowProps.Name = (props.Name or "Headline") .. "Shadow"
+	shadowProps.TextColor3 = Kit.Colors.Ink
+	shadowProps.StrokeColor = Kit.Colors.Ink
+	shadowProps.Position = (props.Position or UDim2.new()) + UDim2.fromOffset(0, drop)
+	shadowProps.ZIndex = (props.ZIndex or 2) - 1
+	local shadow = Kit.text(shadowProps)
+	local label = Kit.text(p)
+	if not props.TextColor3 then
+		Kit.new("UIGradient", {
+			Rotation = 90,
+			Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+				ColorSequenceKeypoint.new(0.55, Color3.new(1, 1, 1)),
+				ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 230, 160)),
+			}),
+			Parent = label,
+		})
+	end
+	for _, prop in { "Text", "Visible", "TextTransparency", "Position" } do
+		label:GetPropertyChangedSignal(prop):Connect(function()
+			if prop == "Position" then
+				shadow.Position = label.Position + UDim2.fromOffset(0, drop)
+			else
+				(shadow :: any)[prop] = (label :: any)[prop]
+			end
+		end)
+	end
+	return label
+end
 
 -- reflets vitrés en biais (bandes blanches transparentes)
 local STREAKS = {
@@ -297,6 +336,7 @@ function Kit.button(props: { [string]: any }, onClick: (() -> ())?): (Frame, Tex
 			Position = props.TextPosition or UDim2.fromScale(0.5, 0.5),
 			AnchorPoint = Vector2.new(0.5, 0.5),
 			Stroke = props.TextStroke or 2.5,
+			Font = props.Font or Kit.Title,
 			ZIndex = 3,
 		})
 	end

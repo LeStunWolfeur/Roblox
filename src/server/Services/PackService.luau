@@ -73,7 +73,7 @@ function PackService.Open(player: Player, key: string)
 	end
 	local rng = Hub.Loot.Random()
 	local count = 1 + ((rng:NextNumber() < pack.BonusChance) and 1 or 0)
-	local luck = (1 + data.PackLuck) * (MonetizationService.Owns(player, "Lucky") and 1.25 or 1)
+	local luck = (1 + data.PackLuck + Hub.Powers.Bonus(player, "Luck")) * Config.PackLuckFromTier(MonetizationService.TierMult(player, Config.LuckTiers))
 	local cards = {}
 	local best = 0
 	for _ = 1, count do
@@ -83,6 +83,11 @@ function PackService.Open(player: Player, key: string)
 		table.insert(cards, { Id = id, F = finish })
 		best = math.max(best, Cards.Rarities[rarity].Order)
 		Hub.Gallery.Give(player, id, finish, nil)
+	end
+	-- carte pouvoir
+	local power = nil
+	if pack.PowerChance and rng:NextNumber() < pack.PowerChance then
+		power = Hub.Powers.Give(player, Hub.Powers.Roll(pack.PowerOdds))
 	end
 	-- chance des prochains packs
 	if best >= Cards.Rarities.Legendary.Order then
@@ -95,7 +100,7 @@ function PackService.Open(player: Player, key: string)
 		local untilT = math.max(player:GetAttribute("CashBoostUntil") or 0, now) + Config.PackCashBoostTime
 		player:SetAttribute("CashBoostUntil", untilT)
 	end
-	Remotes.PackOpened:FireClient(player, { Pack = key, Cards = cards, Luck = data.PackLuck, Bonus = count > 1 })
+	Remotes.PackOpened:FireClient(player, { Pack = key, Cards = cards, Luck = data.PackLuck, Bonus = count > 1, Power = power })
 	if best >= Cards.Rarities.Mythic.Order then
 		local top = cards[1]
 		for _, c in cards do

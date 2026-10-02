@@ -11,6 +11,8 @@ local Hub = {
 	Combat = nil :: any,
 	Players = nil :: any,
 	Loot = nil :: any,
+	Packs = nil :: any,
+	Powers = nil :: any,
 }
 
 return Hub

@@ -272,7 +272,8 @@ RunService.RenderStepped:Connect(function(dt)
 		local speed = player:GetAttribute("Speed") or 0
 		local z = zoneReached(speed)
 		trail.Color = ColorSequence.new(TRAIL_COLORS[z] or Color3.new(1, 1, 1))
-		trail.Enabled = moving and walk > 26
+		-- une traînée achetée (visible par tous) remplace celle-ci
+		trail.Enabled = moving and walk > 26 and (player:GetAttribute("Trail") or 0) == 0
 	end
 
 	if training then

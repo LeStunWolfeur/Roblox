@@ -42,7 +42,7 @@ function GradingService.GradeHeld(player: Player): boolean
 	end
 	data.Cash -= cost
 	player:SetAttribute("Cash", data.Cash)
-	local grade = Hub.Loot.RollGrade(MonetizationService.Owns(player, "Lucky"))
+	local grade = Hub.Loot.RollGrade(MonetizationService.TierMult(player, Config.LuckTiers) + Hub.Powers.Bonus(player, "Grade"))
 	local before = held.G
 	Hub.Zones.SetCarry(player, { Id = held.Id, F = held.F, G = grade, Zone = held.Zone })
 	Remotes.Reveal:FireClient(player, { Id = held.Id, F = held.F, G = grade, Before = before })

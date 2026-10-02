@@ -22,7 +22,9 @@ function CombatService.UpdateSpeed(player: Player)
 	end
 	local speed = Config.WalkSpeedFor(data.Speed)
 	if Hub.Zones.IsCarrying(player) then
-		speed *= Config.CarrySpeedMultiplier
+		-- la carte pouvoir Feather Bag réduit le ralentissement
+		local lighter = math.clamp(Hub.Powers.Bonus(player, "Carry"), 0, 1)
+		speed *= 1 - (1 - Config.CarrySpeedMultiplier) * (1 - lighter)
 	end
 	humanoid.WalkSpeed = speed
 end

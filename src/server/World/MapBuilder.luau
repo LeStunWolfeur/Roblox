@@ -52,48 +52,12 @@ MapBuilder.part = part
 -- Textes
 --------------------------------------------------------------------
 local function surfaceText(target: BasePart, face: Enum.NormalId, text: string, color: Color3, ppm: number?, font: Enum.Font?)
-	local gui = Instance.new("SurfaceGui")
-	gui.Face = face
-	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = ppm or 30
-	gui.LightInfluence = 0
-	gui.Parent = target
-	local label = Instance.new("TextLabel")
-	label.BackgroundTransparency = 1
-	label.Size = UDim2.fromScale(1, 1)
-	label.Font = font or Enum.Font.FredokaOne
-	label.TextScaled = true
-	label.TextColor3 = color
-	label.Text = text
-	label.Parent = gui
-	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = 4
-	stroke.Color = INK
-	stroke.Parent = label
-	return label
+	return Signs.text(target, face, text, { PixelsPerStud = ppm, Color = color ~= PAPER and color or nil, Font = font })
 end
 MapBuilder.surfaceText = surfaceText
 
 local function billboard(parent: Instance, size: UDim2, offset: Vector3, text: string, color: Color3?, maxDistance: number?)
-	local gui = Instance.new("BillboardGui")
-	gui.Size = size
-	gui.StudsOffset = offset
-	gui.MaxDistance = maxDistance or 120
-	gui.LightInfluence = 0
-	gui.Parent = parent
-	local label = Instance.new("TextLabel")
-	label.BackgroundTransparency = 1
-	label.Size = UDim2.fromScale(1, 1)
-	label.Font = Enum.Font.FredokaOne
-	label.TextScaled = true
-	label.TextColor3 = color or Color3.new(1, 1, 1)
-	label.Text = text
-	label.Parent = gui
-	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = 3
-	stroke.Color = INK
-	stroke.Parent = label
-	return label, gui
+	return Signs.billboard(parent, size, offset, text, color ~= PAPER and color or nil, maxDistance)
 end
 MapBuilder.billboard = billboard
 
@@ -109,20 +73,25 @@ local function prompt(parent: Instance, action: string, object: string, hold: nu
 end
 MapBuilder.prompt = prompt
 
--- Panneau sur deux pieds. cf = centre du panneau ; la face Front (-Z local) est le texte principal.
-local function signBoard(cf: CFrame, w: number, h: number, color: Color3, text: string, textColor: Color3, backText: string?, parent: Instance)
+-- Panneau de zone sur deux pieds. cf = centre du panneau ; la face Front (-Z local) regarde les joueurs.
+local function speedBoard(cf: CFrame, w: number, h: number, zoneIndex: number, zone, parent: Instance)
 	local postHeight = cf.Position.Y + h / 2
 	for _, side in { -1, 1 } do
-		local p = (cf * CFrame.new(side * (w / 2 - 1), 0, 0)).Position
-		part({ Name = "Post", Size = Vector3.new(1, postHeight, 1), CFrame = CFrame.new(p.X, postHeight / 2, p.Z), Color = INK }, parent)
+		local p = (cf * CFrame.new(side * (w / 2 - 1.5), 0, 0.2)).Position
+		part({ Name = "Post", Size = Vector3.new(1.2, postHeight, 1.2), CFrame = CFrame.new(p.X, postHeight / 2, p.Z), Color = Color3.fromRGB(60, 64, 80) }, parent)
+		part({ Name = "PostCap", Size = Vector3.new(1.6, 0.6, 1.6), CFrame = CFrame.new(p.X, postHeight + 0.3, p.Z), Color = zone.Accent, Material = Enum.Material.Neon }, parent)
 	end
-	local board = part({ Name = "Board", Size = Vector3.new(w, h, 1), CFrame = cf, Color = color }, parent)
-	-- première ligne = titre, le reste = sous-titre
-	local title, sub = text:match("^([^\n]*)\n(.*)$")
-	local SignsModule = require(script.Parent.Signs)
-	local label = SignsModule.panel(board, Enum.NormalId.Front, { Title = title or text, Sub = sub, Colors = SignsModule.Palettes.Dark, PixelsPerStud = 20, TitleColor = textColor, SubColor = Color3.new(1, 1, 1) })
-	SignsModule.panel(board, Enum.NormalId.Back, { Title = backText or text, Colors = SignsModule.Palettes.Green, PixelsPerStud = 20 })
-	return board, label
+	local board = part({ Name = "Board", Size = Vector3.new(w, h, 0.6), CFrame = cf, Color = INK }, parent)
+	local colors = { zone.Accent:Lerp(Color3.new(1, 1, 1), 0.35), zone.Main, zone.Main:Lerp(INK, 0.45), INK }
+	Signs.speedSign(board, Enum.NormalId.Front, {
+		Zone = zoneIndex,
+		Name = zone.Name:upper(),
+		Speed = zone.Speed > 0 and Format.short(zone.Speed) or nil,
+		Colors = colors,
+		PixelsPerStud = 30,
+	})
+	Signs.panel(board, Enum.NormalId.Back, { Title = "BACK TO YOUR BASE", Colors = Signs.Palettes.Green, PixelsPerStud = 24 })
+	return board
 end
 
 -- Bâtiment ouvert sur une face. cf : -Z local = vers l'intérieur, origine au milieu de l'entrée, au sol
@@ -285,8 +254,8 @@ local function buildBase(index: number, entrance: Vector3, inward: Vector3, pare
 		sl.Parent = spot
 	end
 	-- enseignes : nom du propriétaire et revenu de la base en direct
-	local palette = { color:Lerp(Color3.new(1, 1, 1), 0.45), color, color:Lerp(Props.INK, 0.3), color:Lerp(Props.INK, 0.65) }
-	local t1, s1 = Signs.panel(signFront, Enum.NormalId.Front, { Title = "FREE BASE", Sub = "Join to claim it", Colors = palette, PixelsPerStud = 36 })
+	local palette = Signs.paletteOf(color)
+	local t1, s1 = Signs.panel(signFront, Enum.NormalId.Front, { Title = "FREE BASE", Sub = "", Colors = palette, PixelsPerStud = 36 })
 	local t2, s2 = Signs.panel(signBack, Enum.NormalId.Back, { Title = "FREE BASE", Sub = "", Colors = palette, PixelsPerStud = 36 })
 	local t3, s3 = Signs.panel(backSign, Enum.NormalId.Front, { Title = "FREE BASE", Sub = "", Colors = palette, PixelsPerStud = 30 })
 	local signTitles = { t1, t2, t3 }
@@ -396,71 +365,43 @@ local function buildBase(index: number, entrance: Vector3, inward: Vector3, pare
 	console:SetAttribute("BeltTop", 1.7 + 1.65)
 	game:GetService("CollectionService"):AddTag(console, "Treadmill")
 
-	-- BOUTON D'AMÉLIORATION à côté du tapis : on clique dessus, le prix est affiché au-dessus
-	local bx, bd = 8.5, 16
-	local button = Instance.new("Model")
-	button.Name = "UpgradeButton"
-	button.Parent = tmFolder
-	part({ Name = "Plate", Size = Vector3.new(0.4, 5.2, 5.2), Shape = Enum.PartType.Cylinder, CFrame = at(bx, 1.9, bd) * CFrame.Angles(0, 0, math.rad(90)), Color = Props.INK }, button)
-	local ring = part({ Name = "Ring", Size = Vector3.new(0.3, 5.6, 5.6), Shape = Enum.PartType.Cylinder, CFrame = at(bx, 1.8, bd) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(80, 255, 120), Material = Enum.Material.Neon, CanCollide = false }, button)
-	part({ Name = "Column", Size = Vector3.new(2.6, 3, 3), Shape = Enum.PartType.Cylinder, CFrame = at(bx, 3.4, bd) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(235, 238, 245) }, button)
-	part({ Name = "Collar", Size = Vector3.new(0.5, 3.6, 3.6), Shape = Enum.PartType.Cylinder, CFrame = at(bx, 4.9, bd) * CFrame.Angles(0, 0, math.rad(90)), Color = Props.GOLD, Material = Enum.Material.Metal }, button)
-	local push = part({ Name = "Button", Size = Vector3.new(0.9, 2.7, 2.7), Shape = Enum.PartType.Cylinder, CFrame = at(bx, 5.4, bd) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(80, 255, 120), Material = Enum.Material.Neon }, button)
+	-- BORNE D'AMÉLIORATION, à gauche du tapis : un écran incliné (prochain niveau,
+	-- gain de Speed, prix) et un gros bouton rond sur un socle, devant l'écran.
+	local kiosk = Instance.new("Model")
+	kiosk.Name = "UpgradeKiosk"
+	kiosk.Parent = tmFolder
+	local kx, kd = 8.4, 8
+	local kpos = at(kx, 0, kd).Position
+	local facing = (at(kx + 0.3, 0, kd - 1).Position - kpos).Unit -- vers l'entrée, un peu tourné vers le tapis
+	local kcf = CFrame.lookAt(kpos, kpos + facing)
+	local slate2 = Color3.fromRGB(40, 44, 58)
+	part({ Name = "KioskFoot", Size = Vector3.new(4.6, 0.6, 3.4), CFrame = kcf * CFrame.new(0, 1.95, 0.4), Color = slate2 }, kiosk)
+	part({ Name = "KioskFootGlow", Size = Vector3.new(4.8, 0.2, 3.6), CFrame = kcf * CFrame.new(0, 1.75, 0.4), Color = color, Material = Enum.Material.Neon, CanCollide = false }, kiosk)
+	part({ Name = "KioskBody", Size = Vector3.new(3.2, 4.4, 1.6), CFrame = kcf * CFrame.new(0, 4.4, 0.9), Color = white }, kiosk)
+	part({ Name = "KioskStripe", Size = Vector3.new(3.3, 0.5, 1.7), CFrame = kcf * CFrame.new(0, 3.2, 0.9), Color = color }, kiosk)
+	local screenCF = kcf * CFrame.new(0, 7.6, 0.6) * CFrame.Angles(math.rad(22), 0, 0)
+	part({ Name = "Bezel", Size = Vector3.new(6.2, 4.2, 0.5), CFrame = screenCF * CFrame.new(0, 0, 0.2), Color = slate2 }, kiosk)
+	part({ Name = "BezelGlow", Size = Vector3.new(6.4, 4.4, 0.2), CFrame = screenCF * CFrame.new(0, 0, 0.42), Color = color, Material = Enum.Material.Neon, CanCollide = false }, kiosk)
+	local screen = part({ Name = "Screen", Size = Vector3.new(5.8, 3.8, 0.1), CFrame = screenCF * CFrame.new(0, 0, -0.08), Color = Props.INK }, kiosk)
+	-- gros bouton rond sur son petit socle, devant l'écran
+	local bcf = kcf * CFrame.new(0, 0, -2.6)
+	part({ Name = "ButtonBase", Size = Vector3.new(0.5, 4.6, 4.6), Shape = Enum.PartType.Cylinder, CFrame = bcf * CFrame.new(0, 1.95, 0) * CFrame.Angles(0, 0, math.rad(90)), Color = slate2 }, kiosk)
+	part({ Name = "ButtonPost", Size = Vector3.new(2.2, 2.6, 2.6), Shape = Enum.PartType.Cylinder, CFrame = bcf * CFrame.new(0, 3.2, 0) * CFrame.Angles(0, 0, math.rad(90)), Color = white }, kiosk)
+	local ring = part({ Name = "Ring", Size = Vector3.new(0.4, 3.3, 3.3), CFrame = bcf * CFrame.new(0, 4.45, 0) * CFrame.Angles(0, 0, math.rad(90)), Shape = Enum.PartType.Cylinder, Color = Color3.fromRGB(80, 255, 120), Material = Enum.Material.Neon, CanCollide = false }, kiosk)
+	part({ Name = "Collar", Size = Vector3.new(0.5, 3, 3), Shape = Enum.PartType.Cylinder, CFrame = bcf * CFrame.new(0, 4.6, 0) * CFrame.Angles(0, 0, math.rad(90)), Color = Props.GOLD, Material = Enum.Material.Metal }, kiosk)
+	local push = part({ Name = "Button", Size = Vector3.new(0.8, 2.3, 2.3), Shape = Enum.PartType.Cylinder, CFrame = bcf * CFrame.new(0, 5.0, 0) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(80, 255, 120), Material = Enum.Material.Neon }, kiosk)
 	local click = Instance.new("ClickDetector")
 	click.MaxActivationDistance = 40
 	click.Parent = push
 	push:SetAttribute("BaseIndex", index)
 	game:GetService("CollectionService"):AddTag(push, "UpgradeButton")
-	-- étiquette au-dessus du bouton
-	local bb = Instance.new("BillboardGui")
-	bb.Name = "PriceTag"
-	bb.Size = UDim2.fromOffset(230, 118)
-	bb.StudsOffset = Vector3.new(0, 4.6, 0)
-	bb.MaxDistance = 70
-	bb.LightInfluence = 0
-	bb.Adornee = push
-	bb.Parent = push
-	local card = Instance.new("Frame")
-	card.Size = UDim2.new(1, -8, 1, -8)
-	card.Position = UDim2.fromOffset(4, 4)
-	card.BackgroundColor3 = Color3.new(1, 1, 1)
-	card.Parent = bb
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 10)
-	corner.Parent = card
-	local cardStroke = Instance.new("UIStroke")
-	cardStroke.Thickness = 4
-	cardStroke.Color = Color3.fromRGB(15, 70, 20)
-	cardStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	cardStroke.Parent = card
-	local grad = Instance.new("UIGradient")
-	grad.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(185, 255, 95)),
-		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(90, 220, 60)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(35, 165, 55)),
-	})
-	grad.Rotation = 25
-	grad.Parent = card
-	local function tagText(name: string, y: number, h: number, size: number?): TextLabel
-		local l = Instance.new("TextLabel")
-		l.Name = name
-		l.BackgroundTransparency = 1
-		l.Size = UDim2.new(1, -16, 0, h)
-		l.Position = UDim2.fromOffset(8, y)
-		l.Font = Enum.Font.FredokaOne
-		l.TextScaled = true
-		l.TextColor3 = Color3.new(1, 1, 1)
-		l.Text = ""
-		l.Parent = card
-		local st = Instance.new("UIStroke")
-		st.Thickness = size or 2.5
-		st.Color = Color3.fromRGB(20, 20, 28)
-		st.Parent = l
-		return l
-	end
-	local tagTitle = tagText("Title", 6, 26, 2.5)
-	local tagPrice = tagText("Price", 32, 46, 3.5)
-	local tagSub = tagText("Sub", 80, 22, 2)
+	-- on peut aussi cliquer sur l'écran
+	local screenClick = Instance.new("ClickDetector")
+	screenClick.MaxActivationDistance = 40
+	screenClick.Parent = screen
+	screen:SetAttribute("BaseIndex", index)
+	game:GetService("CollectionService"):AddTag(screen, "UpgradeButton")
+	local ui = Signs.kioskScreen(screen, Enum.NormalId.Front)
 
 	-- coin salon au fond du rez-de-chaussée (sous la mezzanine)
 	for _, x in { -18, 18 } do
@@ -484,7 +425,6 @@ local function buildBase(index: number, entrance: Vector3, inward: Vector3, pare
 		Cases = cases,
 		SignTitles = signTitles,
 		SignSubs = signSubs,
-		SignFrames = { t1.Parent, t2.Parent, t3.Parent },
 		Collect = collect,
 		CollectLabel = collectLabel,
 		Spawn = at(0, 5, 16) * CFrame.Angles(0, math.pi, 0),
@@ -496,12 +436,8 @@ local function buildBase(index: number, entrance: Vector3, inward: Vector3, pare
 			Spot = spot,
 			Button = push,
 			ButtonRing = ring,
-			Tag = card,
-			TagStroke = cardStroke,
-			TagGradient = grad,
-			TagTitle = tagTitle,
-			TagPrice = tagPrice,
-			TagSub = tagSub,
+			Screen = ui,
+			ScreenPart = screen,
 		},
 		Floors = floors,
 		Pads = pads,
@@ -613,17 +549,7 @@ local function buildZone(i: number, zone, parent: Instance)
 	Signs.panel(arch, Enum.NormalId.Back, { Title = "BACK TO YOUR BASE", Colors = Signs.Palettes.Green, PixelsPerStud = 20 })
 
 	-- PANNEAU VITESSE CONSEILLÉE, juste avant l'arche, à droite de la route
-	local rec = zone.Speed > 0 and ("RECOMMENDED SPEED\n" .. Format.short(zone.Speed)) or "NO SPEED NEEDED"
-	signBoard(
-		CFrame.new(road + 13, 9, gateZ - 8) * CFrame.Angles(0, math.rad(25), 0),
-		16,
-		9,
-		INK,
-		("ZONE %d · %s\n%s"):format(i, zone.Name:upper(), rec),
-		zone.Speed > 0 and Color3.fromRGB(255, 220, 80) or Color3.fromRGB(80, 230, 140),
-		"BACK TO YOUR BASE",
-		folder
-	)
+	speedBoard(CFrame.new(road + 13, 9, gateZ - 8) * CFrame.Angles(0, math.rad(25), 0), 16, 9, i, zone, folder)
 
 	-- lampadaires
 	for k = 0, 3 do
